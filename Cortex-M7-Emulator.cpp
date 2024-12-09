@@ -8,52 +8,52 @@ typedef int64_t i64;
 
 enum Instruction
 {
-    OP_NOP = 0x00,
-    OP_RESET = 0xFE,
-    OP_HALT = 0xFF,
+    OP_NOP =        0x00,
+    OP_RESET =      0xFE,
+    OP_HALT =       0xFF,
 
     //Arithmetic
-    OP_ADD8R =     0x10, //Add two registers, store in first
-    OP_ADD8C =    0x11, //Add value constant into register
-    OP_ADD8A =    0x12, //Add register and value at memory address, store in register
-    OP_SUB8R =     0x13,
-    OP_SUB8C =    0x14,
-    OP_SUB8A =    0x15,
+    OP_ADD8R =      0x10,   //Add two registers, store in first
+    OP_ADD8C =      0x11,   //Add constant value into register
+    OP_ADD8A =      0x12,   //Add register and value at memory address, store in register
+    OP_SUB8R =      0x13,   //Subtract two registers, store in first
+    OP_SUB8C =      0x14,   //Subtract constant value from register
+    OP_SUB8A =      0x15,   //Subtract register and value at memory address, store in register
 
-    OP_ADD16R =     0x20, //Add two registers, store in first
-    OP_ADD16C =    0x21, //Add word constant into register
-    OP_ADD16A =    0x22, //Add register and word at memory address, store in register
-    OP_SUB16R =     0x23,
-    OP_SUB16C =    0x24,
-    OP_SUB16A =    0x25,
+    OP_ADD16R =     0x20,   //Add two registers, store in first
+    OP_ADD16C =     0x21,   //Add word constant into register
+    OP_ADD16A =     0x22,   //Add register and word at memory address, store in register
+    OP_SUB16R =     0x23,   //Subtract two registers, store in first
+    OP_SUB16C =     0x24,   //Subtract constant value from register
+    OP_SUB16A =     0x25,   //Subtract register and value at memory address, store in register
 
     //Increment
-    OP_INC8R = 0x31, //Increment a value in a register
-    OP_INC8A = 0x32, //Increment a value in memory
-    OP_DEC8R = 0x33, //Decrement a value in a register
-    OP_DEC8 = 0x34, //Decrement a value in memory
+    OP_INC8R =      0x31,   //Increment a value in a register
+    OP_INC8A =      0x32,   //Increment a value in memory
+    OP_DEC8R =      0x33,   //Decrement a value in a register
+    OP_DEC8 =       0x34,   //Decrement a value in memory
 
-    OP_INC16R = 0x35, //Increment a word in a register
-    OP_INC16A = 0x36, //Increment a word in memory
-    OP_DEC16R = 0x37, //Decrement a word in a register
-    OP_DEC16 = 0x38, //Decrement a word in memory
+    OP_INC16R =     0x35,   //Increment a word in a register
+    OP_INC16A =     0x36,   //Increment a word in memory
+    OP_DEC16R =     0x37,   //Decrement a word in a register
+    OP_DEC16 =      0x38,   //Decrement a word in memory
 
     //Registers
-    OP_LD8 = 0xA0, //Load value into register
-    OP_LD16 = 0xA1, //Load word into register
+    OP_LD8 =        0xA0,   //Load value into register
+    OP_LD16 =       0xA1,   //Load word into register
 
     //Control
-    OP_JMP = 0xB0,
-    OP_JSR = 0xB1,
-    OP_RTN = 0xB2,
+    OP_JMP =        0xB0,   //Set the program counter (PC) and contion execution
+    OP_JSR =        0xB1,   //Increment SP by 2, push the current PC to the stack, and jump to a subroutine
+    OP_RTN =        0xB2,   //Pop the previous PC off the stack and jump to it, decrement the SP by 2
 
     //Stack
-    OP_PUSHR8 = 0xC0, //Push register onto stack, decrement SP
-    OP_POPR8 = 0xC1, //Pop stack into register, increment SP
-    OP_PUSHR16 = 0xC2, //Push register onto stack, decrement SP by 2
-    OP_POPR16 = 0xC3, //Pop stack into register, increment SP by 2
-    //OP_PHS = 0xC4, //Push status onto stack, decrement SP
-    //OP_PHS = 0xC5, //Pop stack into status, increment SP
+    OP_PUSHR8 =     0xC0,   //Push register onto stack, decrement SP
+    OP_POPR8 =      0xC1,   //Pop stack into register, increment SP
+    OP_PUSHR16 =    0xC2,   //Push register onto stack, decrement SP by 2
+    OP_POPR16 =     0xC3,   //Pop stack into register, increment SP by 2
+    //OP_PHS =      0xC4,   //Push status onto stack, decrement SP
+    //OP_PHS =      0xC5,   //Pop stack into status, increment SP
 }; 
 
 struct Memory
