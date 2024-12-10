@@ -13,45 +13,55 @@ enum Instruction
     OP_HALT =       0xFF,
 
     //Arithmetic
-    OP_ADD8R =      0x10,   //Add two registers, store in first
-    OP_ADD8C =      0x11,   //Add constant value into register
-    OP_ADD8A =      0x12,   //Add register and value at memory address, store in register
-    OP_SUB8R =      0x13,   //Subtract two registers, store in first
-    OP_SUB8C =      0x14,   //Subtract constant value from register
-    OP_SUB8A =      0x15,   //Subtract register and value at memory address, store in register
+    OP_ADD =        0x10,   //Add two registers, store in first
+    OP_ADDC =       0x11,   //Add word constant into register
+    OP_ADDA =       0x12,   //Add register and word at memory address, store in register
+    OP_SUB =        0x13,   //Subtract two registers, store in first
+    OP_SUBC =       0x14,   //Subtract constant value from a register, store in register
+    OP_SUBA =       0x15,   //Subtract the value in memory from a register, store in register
 
-    OP_ADD16R =     0x20,   //Add two registers, store in first
-    OP_ADD16C =     0x21,   //Add word constant into register
-    OP_ADD16A =     0x22,   //Add register and word at memory address, store in register
-    OP_SUB16R =     0x23,   //Subtract two registers, store in first
-    OP_SUB16C =     0x24,   //Subtract constant value from register
-    OP_SUB16A =     0x25,   //Subtract register and value at memory address, store in register
+    OP_CMP = 0x1E,   //Subtract two registers and update status flags, discard result
+    OP_CMPA = 0x1F,   //Subtract a value in memory from a register and update status flags, discard result
 
     //Increment
-    OP_INC8R =      0x31,   //Increment a value in a register
-    OP_INC8A =      0x32,   //Increment a value in memory
-    OP_DEC8R =      0x33,   //Decrement a value in a register
-    OP_DEC8 =       0x34,   //Decrement a value in memory
+    OP_INC =        0x21,   //Increment a word in a register
+    OP_INCA =       0x22,   //Increment a word in memory
+    OP_DEC =        0x23,   //Decrement a word in a register
+    OP_DECA =       0x24,   //Decrement a word in memory
 
-    OP_INC16R =     0x35,   //Increment a word in a register
-    OP_INC16A =     0x36,   //Increment a word in memory
-    OP_DEC16R =     0x37,   //Decrement a word in a register
-    OP_DEC16 =      0x38,   //Decrement a word in memory
+    //Bitwise
+    OP_UXT =        0x30,   //Zero extend a byte (truncate 16 bit value to 8 bits)
 
     //Registers
-    OP_LD8 =        0xA0,   //Load value into register
-    OP_LD16 =       0xA1,   //Load word into register
+    OP_LD =         0xA0,   //Load word into register
+    OP_LDB =        0xA1,   //Load value into register
 
     //Control
-    OP_JMP =        0xB0,   //Set the program counter (PC) and contion execution
-    OP_JSR =        0xB1,   //Increment SP by 2, push the current PC to the stack, and jump to a subroutine
-    OP_RTN =        0xB2,   //Pop the previous PC off the stack and jump to it, decrement the SP by 2
+    OP_JSR =        0xB0,   //Increment SP by 2, push the current PC to the stack, and jump to a subroutine
+    OP_RTN =        0xB1,   //Pop the previous PC off the stack and jump to it, decrement the SP by 2
+
+    OP_JMP =        0xC0,   //Set the program counter (PC) and contion execution
+    OP_JRZ =        0xC1,   //Jump if register is equal to 0
+
+    OP_JRE =        0xC2,   //Jump if register is equal to a constant
+    OP_JRN =        0xC3,   //Jump if register is not equal to a constant
+    OP_JRG =        0xC4,   //Jump if register is greater than a constant
+    OP_JRGE =       0xC5,   //Jump if register is greater than or equal to a constant
+    OP_JRL =        0xC6,   //Jump if register is less than a constant
+    OP_JRLE =       0xC7,   //Jump if register is less than or equal to a constant
+
+    OP_JREA =       0xC8,   //Jump if register is equal to a value in memory
+    OP_JRNA =       0xC9,   //Jump if register is not equal to a value in memory
+    OP_JRGA =       0xCA,   //Jump if register is greater than a value in memory
+    OP_JRGEA =      0xCB,   //Jump if register is greater than or equal to a value in memory
+    OP_JRLA =       0xCC,   //Jump if register is less than a value in memory
+    OP_JRLEA =      0xCD,   //Jump if register is less than or equal to a value in memory
 
     //Stack
-    OP_PUSHR8 =     0xC0,   //Push register onto stack, decrement SP
-    OP_POPR8 =      0xC1,   //Pop stack into register, increment SP
-    OP_PUSHR16 =    0xC2,   //Push register onto stack, decrement SP by 2
-    OP_POPR16 =     0xC3,   //Pop stack into register, increment SP by 2
+    OP_PUSHR =      0xE0,   //Push register onto stack, decrement SP by 2
+    OP_POPR =       0xE1,   //Pop stack into register, increment SP by 2
+    OP_PUSHR8 =     0xE2,   //Push register onto stack, decrement SP
+    OP_POPR8 =      0xE3,   //Pop stack into register, increment SP
     //OP_PHS =      0xC4,   //Push status onto stack, decrement SP
     //OP_PHS =      0xC5,   //Pop stack into status, increment SP
 }; 
@@ -78,12 +88,26 @@ struct Memory
 union Registers //Not including special registers
 {
     struct {
-        Word 
-            R0, R1, R2, R3, R4, R5, //General purpose registers
-            PC, //Program counter
-            SP;//Stack pointer
+        Word R0, R1, R2, R3, R4, R5; //General purpose registers
+        Word PC; //Program counter
+        Word SP; //Stack pointer
+
+        //Status flags
+        Word N : 1; //Negative
+        Word O : 1; //Overflow
+        Word B : 1; //Break
+        Word D : 1; //Decimal
+        Word I : 1; //Interrupt disable
+        Word Z : 1; //Zero
+        Word C : 1; //Carry
+        Word _ : 1; //Unused
     };
-    Word aligned[8];
+
+    struct
+    {
+        Word aligned[8];
+        Byte status;
+    };
 
     Word operator[](Byte reg) const {
         return aligned[reg];
@@ -176,129 +200,195 @@ struct CPU {
                 halted = true;
                 std::cout << "INFO: HALT instruction executed. The CPU will now stop\n";
             } break;
-            case OP_INC8A: {
-                Word address = FetchWord(cycles, mem);
-                Byte& memByte = ReadByte(cycles, mem, address);
-                memByte = (Byte)(memByte + 1);
-            } break;
-            case OP_INC8R: {
+            case OP_INC: {
                 Byte reg = FetchByte(cycles, mem);
-                registers[reg] = (Byte)(registers[reg] + 1);
+                registers[reg]++;
             } break;
-            case OP_INC16A: {
+            case OP_INCA: {
                 Word address = FetchWord(cycles, mem);
                 Word value = ReadWord(cycles, mem, address) + 1;
                 WriteWord(cycles, mem, address, value);
             } break;
-            case OP_INC16R: {
+            case OP_DEC: {
                 Byte reg = FetchByte(cycles, mem);
-                registers[reg]++;
+                registers[reg]--;
             } break;
-            case OP_DEC8: {
-                Word address = FetchWord(cycles, mem);
-                Byte& memByte = ReadByte(cycles, mem, address);
-                memByte = (Byte)(memByte - 1);
-            } break;
-            case OP_DEC8R: {
-                Byte reg = FetchByte(cycles, mem);
-                registers[reg] = (Byte)(registers[reg] - 1);
-            } break;
-            case OP_DEC16: {
+            case OP_DECA: {
                 Word address = FetchWord(cycles, mem);
                 Word value = ReadWord(cycles, mem, address) - 1;
                 WriteWord(cycles, mem, address, value);
             } break;
-            case OP_DEC16R: {
-                Byte reg = FetchByte(cycles, mem);
-                registers[reg]--;
-            } break;
-            case OP_ADD8R: {
-                Byte reg1 = FetchByte(cycles, mem);
-                Byte reg2 = FetchByte(cycles, mem);
-
-                registers[reg1] = (Byte)(registers[reg1] + registers[reg2]);
-            } break;
-            case OP_ADD8C: {
-                Byte reg = FetchByte(cycles, mem);
-                Byte value = FetchByte(cycles, mem);
-
-                registers[reg] = (Byte)(registers[reg] + value);
-            } break;
-            case OP_ADD8A: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
-                Byte memValue = ReadByte(cycles, mem, address);
-
-                registers[reg] = (Byte)(registers[reg] + memValue);
-            } break;
-            case OP_SUB8R: {
-                Byte reg1 = FetchByte(cycles, mem);
-                Byte reg2 = FetchByte(cycles, mem);
-
-                Byte result = registers[reg1] - registers[reg2];
-                registers[reg1] = (Byte)(registers[reg1] - registers[reg2]);
-            } break;
-            case OP_SUB8C: {
-                Byte reg = FetchByte(cycles, mem);
-                Byte value = FetchByte(cycles, mem);
-
-                registers[reg] = (Byte)(registers[reg] - value);
-            } break;
-            case OP_SUB8A: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
-                Byte memValue = ReadByte(cycles, mem, address);
-
-                registers[reg] = (Byte)(registers[reg] - memValue);
-            } break;
-            case OP_ADD16R: {
+            case OP_ADD: {
                 Byte reg1 = FetchByte(cycles, mem);
                 Byte reg2 = FetchByte(cycles, mem);
 
                 registers[reg1] = registers[reg1] + registers[reg2];
             } break;
-            case OP_ADD16C: {
+            case OP_ADDC: {
                 Byte reg = FetchByte(cycles, mem);
                 Word value = FetchWord(cycles, mem);
 
                 registers[reg] = registers[reg] + value;
             } break;
-            case OP_ADD16A: {
+            case OP_ADDA: {
                 Byte reg = FetchByte(cycles, mem);
                 Word address = FetchWord(cycles, mem);
                 Word memValue = ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] + memValue;
             } break;
-            case OP_SUB16R: {
+            case OP_SUB: {
                 Byte reg1 = FetchByte(cycles, mem);
                 Byte reg2 = FetchByte(cycles, mem);
 
                 registers[reg1] = registers[reg1] - registers[reg2];
             } break;
-            case OP_SUB16C: {
+            case OP_SUBC: {
                 Byte reg = FetchByte(cycles, mem);
                 Word value = FetchWord(cycles, mem);
 
                 registers[reg] = registers[reg] - value;
             } break;
-            case OP_SUB16A: {
+            case OP_SUBA: {
                 Byte reg = FetchByte(cycles, mem);
                 Word address = FetchWord(cycles, mem);
                 Word memValue = ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] - memValue;
             } break;
-            case OP_LD8: {
+            case OP_UXT: {
                 Byte reg = FetchByte(cycles, mem);
-                registers[reg] = FetchByte(cycles, mem);
-            } break;
-            case OP_LD16: {
+                registers[reg] &= 0xFF;
+            }
+            case OP_LD: {
                 Byte reg = FetchByte(cycles, mem);
                 registers[reg] = FetchWord(cycles, mem);
             } break;
+            case OP_LDB: {
+                Byte reg = FetchByte(cycles, mem);
+                registers[reg] = FetchByte(cycles, mem);
+            } break;
             case OP_JMP: {
                 registers.PC = FetchWord(cycles, mem);
+            } break;
+            case OP_JRZ: {
+                if (registers[FetchByte(cycles, mem)] == 0) {
+                    registers.PC = FetchWord(cycles, mem);
+                }
+            } break;
+            case OP_JRE: {
+                Byte reg = FetchByte(cycles, mem);
+                Word value = FetchWord(cycles, mem);
+                Word address = FetchWord(cycles, mem);
+
+                if (registers[reg] == value) {
+                    registers.PC = address;
+                }
+            } break;
+            case OP_JRN: {
+                Byte reg = FetchByte(cycles, mem);
+                Word value = FetchWord(cycles, mem);
+                Word address = FetchWord(cycles, mem);
+
+                if (registers[reg] != value) {
+                    registers.PC = address;
+                }
+            } break;
+            case OP_JRG: {
+                Byte reg = FetchByte(cycles, mem);
+                Word value = FetchWord(cycles, mem);
+                Word address = FetchWord(cycles, mem);
+
+                if (registers[reg] > value) {
+                    registers.PC = address;
+                }
+            } break;
+            case OP_JRGE: {
+                Byte reg = FetchByte(cycles, mem);
+                Word value = FetchWord(cycles, mem);
+                Word address = FetchWord(cycles, mem);
+
+                if (registers[reg] >= value) {
+                    registers.PC = address;
+                }
+            } break;
+            case OP_JRL: {
+                Byte reg = FetchByte(cycles, mem);
+                Word value = FetchWord(cycles, mem);
+                Word address = FetchWord(cycles, mem);
+
+                if (registers[reg] < value) {
+                    registers.PC = address;
+                }
+            } break;
+            case OP_JRLE: {
+                Byte reg = FetchByte(cycles, mem);
+                Word value = FetchWord(cycles, mem);
+                Word address = FetchWord(cycles, mem);
+
+                if (registers[reg] <= value) {
+                    registers.PC = address;
+                }
+            } break;
+            case OP_JREA: {
+                Byte reg = FetchByte(cycles, mem);
+                Word memAddress = FetchWord(cycles, mem);
+                Word memValue = ReadWord(cycles, mem, memAddress);
+                Word jumpAddress = FetchWord(cycles, mem);
+
+                if (registers[reg] == memValue) {
+                    registers.PC = jumpAddress;
+                }
+            } break;
+            case OP_JRNA: {
+                Byte reg = FetchByte(cycles, mem);
+                Word memAddress = FetchWord(cycles, mem);
+                Word memValue = ReadWord(cycles, mem, memAddress);
+                Word jumpAddress = FetchWord(cycles, mem);
+
+                if (registers[reg] != memValue) {
+                    registers.PC = jumpAddress;
+                }
+            } break;
+            case OP_JRGA: {
+                Byte reg = FetchByte(cycles, mem);
+                Word memAddress = FetchWord(cycles, mem);
+                Word memValue = ReadWord(cycles, mem, memAddress);
+                Word jumpAddress = FetchWord(cycles, mem);
+
+                if (registers[reg] > memValue) {
+                    registers.PC = jumpAddress;
+                }
+            } break;
+            case OP_JRGEA: {
+                Byte reg = FetchByte(cycles, mem);
+                Word memAddress = FetchWord(cycles, mem);
+                Word memValue = ReadWord(cycles, mem, memAddress);
+                Word jumpAddress = FetchWord(cycles, mem);
+
+                if (registers[reg] >= memValue) {
+                    registers.PC = jumpAddress;
+                }
+            } break;
+            case OP_JRLA: {
+                Byte reg = FetchByte(cycles, mem);
+                Word memAddress = FetchWord(cycles, mem);
+                Word memValue = ReadWord(cycles, mem, memAddress);
+                Word jumpAddress = FetchWord(cycles, mem);
+
+                if (registers[reg] < memValue) {
+                    registers.PC = jumpAddress;
+                }
+            } break;
+            case OP_JRLEA: {
+                Byte reg = FetchByte(cycles, mem);
+                Word memAddress = FetchWord(cycles, mem);
+                Word memValue = ReadWord(cycles, mem, memAddress);
+                Word jumpAddress = FetchWord(cycles, mem);
+
+                if (registers[reg] <= memValue) {
+                    registers.PC = jumpAddress;
+                }
             } break;
             case OP_JSR: {
                 Word newPC = FetchWord(cycles, mem);
@@ -308,6 +398,14 @@ struct CPU {
             case OP_RTN: {
                 registers.PC = StackPopWord(cycles, mem);
             } break;
+            case OP_PUSHR: {
+                Byte reg = FetchByte(cycles, mem);
+                StackPushWord(cycles, mem, registers[reg]);
+            } break;
+            case OP_POPR: {
+                Byte reg = FetchByte(cycles, mem);
+                registers[reg] = StackPopWord(cycles, mem);
+            } break;
             case OP_PUSHR8: {
                 Byte reg = FetchByte(cycles, mem);
                 StackPushByte(cycles, mem, registers[reg]);
@@ -315,14 +413,6 @@ struct CPU {
             case OP_POPR8: {
                 Byte reg = FetchByte(cycles, mem);
                 registers[reg] = StackPopByte(cycles, mem);
-            } break;
-            case OP_PUSHR16: {
-                Byte reg = FetchByte(cycles, mem);
-                StackPushWord(cycles, mem, registers[reg]);
-            } break;
-            case OP_POPR16: {
-                Byte reg = FetchByte(cycles, mem);
-                registers[reg] = StackPopWord(cycles, mem);
             } break;
             default:
                 std::cout << "ERROR: Illegal instruction\n";
@@ -342,28 +432,17 @@ int main()
     CPU cpu{};
 
     cpu.Reset(mem);
-    mem[0x0000] = OP_LD8;
+    mem[0x0000] = OP_INC;
     mem[0x0001] = 0x00;
-    mem[0x0002] = 0x04;
-    mem[0x0003] = OP_LD8;
-    mem[0x0004] = 0x01;
-    mem[0x0005] = 0x02;
-    mem[0x0006] = OP_ADD8R;
-    mem[0x0007] = 0x00;
-    mem[0x0008] = 0x01;
-    mem[0x0009] = OP_JSR;
-    mem[0x000A] = 0xA1; 
-    mem[0x000B] = 0x00;
-    mem[0x000C] = OP_HALT;
+    mem[0x0002] = OP_JRN;
+    mem[0x0003] = 0x00; //Register
+    mem[0x0004] = 0x10; //Value (0 - 7)
+    mem[0x0005] = 0x00; //Value (0 - 7)
+    mem[0x0006] = 0x00; //Address (0 - 7)
+    mem[0x0007] = 0x00; //Address (8 - 15)
+    mem[0x0008] = OP_HALT;
 
-    //cool code
-
-    mem[0x00A1] = OP_LD8;
-    mem[0x00A2] = 0x03;
-    mem[0x00A3] = 0x08;
-    mem[0x00A4] = OP_RTN;
-
-    cpu.Execute(21, mem);
+    cpu.Execute(129, mem); //This simply increment loop takes 129 cycles x_x (JRN eats up 6 cycles)
 
     __noop; //For breakpoint debugging
 }
