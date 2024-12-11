@@ -11,9 +11,9 @@ enum Opcode
     // Opcodes must not excede 0x7F (01111111) due to the byteFlag bit!
     
     //Special
-    OP_NOP =        0x00,
-    OP_RESET =      0x7E,
-    OP_HALT =       0x7F,
+    OP_NOP =        0x00,   //No Op
+    OP_RESET =      0x7E,   //Reset the CPU (clears registers and memory, resets flags)
+    OP_HALT =       0x7F,   //Stops the CPU execution of instuctions
 
     //Arithmetic
     OP_ADD =        0x01,   //Add two registers, store in first
@@ -60,21 +60,21 @@ enum Opcode
     OP_SWPRM,               //Swap register and memory
     //TODO ]]
 
-    //Control
+    //Control2
     OP_JSR =        0x40,   //Increment SP by 2, push the current PC to the stack, and jump to a subroutine
-    OP_RTN,                 //Pop the previous PC off the stack and jump to it, decrement the SP by 2
+    OP_RTN,                 //Pop the previous PC off the stack and jump to it, decrtant value
+    OP_JRL,                 //Jump if register is less than a constant value
+    OP_JRLE,                //Jump if register is less than or equal to a constant value
+
+    OP_JREM,                //Jump if register is equal to a value in memory
+    OP_JRNM,                //Jump if register is not equal to a value in mement the SP by 2
     OP_JMP,                 //Set the program counter (PC) and contion execution
 
     OP_JRZ,                 //Jump if register is equal to 0
     OP_JRE,                 //Jump if register is equal to a constant value
     OP_JRN,                 //Jump if register is not equal to a constant value
     OP_JRG,                 //Jump if register is greater than a constant value
-    OP_JRGE,                //Jump if register is greater than or equal to a constant value
-    OP_JRL,                 //Jump if register is less than a constant value
-    OP_JRLE,                //Jump if register is less than or equal to a constant value
-
-    OP_JREM,                //Jump if register is equal to a value in memory
-    OP_JRNM,                //Jump if register is not equal to a value in memory
+    OP_JRGE,                //Jump if register is greater than or equal to a consemory
     OP_JRGM,                //Jump if register is greater than a value in memory
     OP_JRGEM,               //Jump if register is greater than or equal to a value in memory
     OP_JRLM,                //Jump if register is less than a value in memory
@@ -96,6 +96,18 @@ enum Opcode
 
 };
 
+enum Interrupt
+{
+    I_0,
+    I_1,
+    I_2,
+    I_3,
+    I_4,
+    I_5,
+    I_6,
+    I_H,
+};
+
 enum Opsize {
     Size_Word,
     Size_Byte,
@@ -105,8 +117,8 @@ struct Memory
 {
     /*  
         +-----------------+ 0xFFFF
-        | Interrupt Table |
-        +-----------------+ 0xFFFF
+        | SetInterrupt Table |   ->   Stores 8 interrupt handler addresses
+        +-----------------+ 0xFFF0
         |    Stack (v)    |
         +-----------------+
         |                 |
@@ -124,6 +136,8 @@ struct Memory
     */
 
     static constexpr Word MEM_SIZE = 0xFFFF;
+    static constexpr Word INTERRUPT_TABLE = 0xFFF0;
+
     //Byte* Data = new Byte[MEM_SIZE];
     Byte Data[MEM_SIZE];
 
@@ -152,16 +166,26 @@ union Registers //Not including special registers
         Word O : 1; //Overflow
         Word B : 1; //Break
         Word D : 1; //Decimal
-        Word I : 1; //Interrupt disable
+        Word I : 1; //Global interrupt enable
         Word Z : 1; //Zero
         Word C : 1; //Carry
-        Word _ : 1; //Unused
+
+        //SetInterrupt flags
+        Byte I0 : 1; //Interrupts 1-6
+        Byte I1 : 1;
+        Byte I2 : 1;
+        Byte I3 : 1;
+        Byte I4 : 1;
+        Byte I5 : 1;
+        Byte I6 : 1;
+        Byte IH : 1; //High priority interrupt
     };
 
     struct
     {
         Word aligned[8];
         Byte status;
+        Byte interruptFlags;
     };
 
     Word operator[](Byte reg) const {
@@ -176,6 +200,10 @@ struct CPU {
     //Registers
     Registers registers;
     bool halted = false;
+
+    void SetInterrupt(Byte i) {
+        registers.interruptFlags &= i;
+    }
 
     void Reset(Memory& mem) {
         mem.Clear();
@@ -240,9 +268,28 @@ struct CPU {
         return value;
     }
 
+    void ExecuteInterrupt(i64& cycles, Memory& mem, Interrupt i) {
+        //Push status to stack
+        //Push PC to stack
+        registers.PC = ReadWord(cycles, mem, Memory::INTERRUPT_TABLE + (i * 2));
+        registers.I = 0; //Disable low priority interrupts from interrupting this routine
+        registers.interruptFlags &= ~(1 << i); //Clear the flag for this interrupt
+    }
+
     void Execute(i64 cycles, Memory& mem) {
         while (cycles > 0 && !halted)
         {
+            if (registers.interruptFlags > 0) {
+                //Is high priority interrupt flag set?
+                if (registers.interruptFlags & 0x80) {
+                    ExecuteInterrupt(cycles, mem, I_H);
+                }
+                else {
+                    int lowestSetBit = log2(registers.interruptFlags & -registers.interruptFlags) + 1;
+                    ExecuteInterrupt(cycles, mem, (Interrupt)lowestSetBit);
+                }
+            }
+
             Byte instByte = FetchByte(cycles, mem);
             Opcode instruction = (Opcode)(instByte & 0x7F);
             bool byteFlag = (instByte >> 7) == 1;
