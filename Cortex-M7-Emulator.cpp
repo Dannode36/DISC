@@ -90,6 +90,10 @@ enum Opcode
 
     OP_PUSHS,               //Push status onto stack, decrement SP by (opsize + 1)
     OP_POPS,                //Pop stack into status, increment SP by (opsize + 1)
+
+    OP_SEI =        0x70,
+    OP_CLI,
+
 };
 
 enum Opsize {
@@ -99,6 +103,26 @@ enum Opsize {
 
 struct Memory
 {
+    /*  
+        +-----------------+ 0xFFFF
+        | Interrupt Table |
+        +-----------------+ 0xFFFF
+        |    Stack (v)    |
+        +-----------------+
+        |                 |
+        +                 +
+        |                 |
+        +                 +
+        |      Heap       |
+        +                 +
+        |                 |
+        +                 +
+        |                 |
+        +-----------------+
+        |   Program (^)   |
+        +-----------------+ 0x0000
+    */
+
     static constexpr Word MEM_SIZE = 0xFFFF;
     //Byte* Data = new Byte[MEM_SIZE];
     Byte Data[MEM_SIZE];
