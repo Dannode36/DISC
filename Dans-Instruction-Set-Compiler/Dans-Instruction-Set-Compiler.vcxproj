@@ -129,6 +129,11 @@
   <ItemGroup>
     <ClCompile Include="Dans-Instruction-Set-Compiler.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Cortex-M7-Emulator.vcxproj">
+      <Project>{b1a83e1f-b07a-4c00-b2f1-7d3de0914207}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

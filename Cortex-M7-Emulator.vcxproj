@@ -129,6 +129,9 @@
   <ItemGroup>
     <ClCompile Include="Cortex-M7-Emulator.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="cpu.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
