@@ -47,12 +47,12 @@ enum Opcode
     //TODO
 
     //Data moving
-    OP_LDR = 0x30,   //Load value from register into register
+    OP_LDR = 0x30,          //Load value from register into register
     OP_LDC,                 //Load value constant into register
     OP_LDM,                 //Load value from memory into register
 
     OP_STRM,                //Store register into memory
-    //OP_STMM,                //Store memory into memory
+    OP_STMM,                //Store memory into memory (copies memory)
     OP_STCM,                //Store constant into memory
 
     //Are these needed?
@@ -141,8 +141,8 @@ struct Memory
     static constexpr Word MEM_SIZE = 0xFFFF;
     static constexpr Word INTERRUPT_TABLE = 0xFFF0;
 
-    //Byte* Data = new Byte[MEM_SIZE];
-    Byte Data[MEM_SIZE];
+    Byte* Data = new Byte[MEM_SIZE];
+    //Byte Data[MEM_SIZE];
 
     void Clear() {
         memset(Data, 0, MEM_SIZE);
