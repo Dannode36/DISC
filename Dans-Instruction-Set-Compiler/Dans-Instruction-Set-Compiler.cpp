@@ -47,6 +47,7 @@ enum Type
     Type_Register
 };
 
+
 struct AsmArgument
 {
     Type type;
@@ -57,6 +58,11 @@ struct AsmInstruction
 {
     Instruction inst;
     std::vector<AsmArgument> args;
+};
+
+struct AsmLabel {
+    std::string label;
+    std::vector<AsmInstruction> instructions;
 };
 
 static Type GetVarType(const std::string& str) {
@@ -467,13 +473,16 @@ int main()
     std::vector<AsmInstruction> instructions;
     std::vector<Opcode> opcodes; //Don't actually use this, operate directly on the instructions vector
 
+    std::vector<AsmLabel> labels;
+
     std::vector<Byte> programText;
 
     while (std::getline(assemblyStream, line))
     {
+
         bool isFirstWord = true;
         std::stringstream lineStream(line);
-        AsmInstruction asmInst{};
+        AsmInstruction asmInst{}; //back of label instruction array (TODO
         std::printf("Parsing line...\n");
 
         while (std::getline(lineStream >> std::ws, word, ' ')) {
@@ -483,7 +492,16 @@ int main()
                 break; //Ignore comments
             }
             else if (isFirstWord) {
-                asmInst.inst = ParseAssemblyInstruction(word);
+                //If is label
+                if (word.back() == ':') {
+                    labels.emplace_back(word);
+                }
+                else if (labels.size() > 0) {
+                    asmInst.inst = ParseAssemblyInstruction(word);
+                }
+                else {
+                    throw except("Instruction does not have a label. The program must enter from the .main label");
+                }
             }
             else {
                 Type type = GetVarType(word);
