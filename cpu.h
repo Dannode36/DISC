@@ -63,7 +63,7 @@ enum Opcode
     //TODO ]]
 
     //Control2
-    OP_JSR = 0x40,   //Increment SP by 2, push the current PC to the stack, and jump to a subroutine
+    OP_JSR = 0x40,          //Increment SP by 2, push the current PC to the stack, and jump to a subroutine
     OP_RTN,                 //Pop the previous PC off the stack and jump to it, decrtant value
     OP_JMP,                 //Set the program counter (PC) and contion execution
 
