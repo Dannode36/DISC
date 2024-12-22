@@ -52,6 +52,12 @@ enum Type
     Type_Register,
 };
 
+struct AsmData {
+    Type type;
+    Word value;
+    Word memAddress;
+};
+
 struct AsmArgument
 {
     Type type;
@@ -112,8 +118,14 @@ static AsmVar GetVarValue(std::string str, Type type) {
     switch (type)
     {
     case Type_Word:
-    case Type_Byte:
-        return (Word)std::stoi(str.substr(3), nullptr, 16);
+    case Type_Byte: {
+        if (str.substr(0, 2) == "0x") {
+            return (Word)std::stoi(str.substr(3), nullptr, 16);
+        }
+        else {
+            return (Word)std::stoi(str);
+        }
+    }
     case Type_ByteAddress:
     case Type_WordAddress:
         return (Word)std::stoi(str.substr(1, str.length() - 4));
@@ -473,6 +485,7 @@ struct AsmLabel {
 
                 if (isInstruction) { //Push complete instruction into vector
                     instructions.push_back(std::move(asmInst));
+                    asmInst = {};
                 }
                 continue;
             }
@@ -493,16 +506,67 @@ struct AsmLabel {
         }
     }
 };
-static AsmLabel GetLabel(std::string name, const std::vector<AsmLabel>& labels) {
+
+static Word GetLabelValue(std::string name, const std::vector<AsmLabel>& labels, const std::map<std::string, AsmData>& data) {
     auto itr = std::find_if(labels.begin(), labels.end(), 
         [&name](const AsmLabel& label) {
             return label.name == name;
         });
-    if (itr == labels.end()) {
-        throw Except((std::string("No label with the name ") + name + "exists").c_str());
+    if (itr != labels.end()) {
+        return itr->memAddress;
     }
 
-    return *itr;
+    auto dataItr = std::find_if(data.begin(), data.end(),
+        [&name](const auto& asmData) {
+            return asmData.first == name;
+        });
+    if (dataItr != data.end()) {
+        return dataItr->second.value;
+    }
+}
+
+static void ParseDataLabel(std::stringstream& ppStream, std::map<std::string, AsmData>& data) {
+    std::string line;
+    std::string word;
+
+    while (std::getline(ppStream, line)) {
+        std::printf("Parsing line...\n");
+
+        bool isFirstWord = true;
+        bool hasData = false;
+        std::stringstream lineStream(line);
+
+        std::string dataName;
+        AsmData asmData;
+
+        while (std::getline(lineStream >> std::ws, word, ' ')) {
+            std::printf("%s\n", word.c_str());
+
+            if (word.back() == ':') {
+                if (isFirstWord) {
+                    hasData = true;
+                    dataName = word.substr(0, word.length() - 1); //Label
+                }
+                else {
+                    throw Except("Labels cannot have spaces");
+                }
+            }
+            else if (word == ";") {
+                break;
+            }
+            else {
+                asmData.type = GetVarType(word);
+                asmData.value = std::get<Word>(GetVarValue(word, asmData.type));
+            }
+
+            isFirstWord = false;
+        }
+
+        if (hasData) {
+            data.insert({ dataName, std::move(asmData)} );
+        }
+    }
+
 }
 
 int main()
@@ -510,11 +574,12 @@ int main()
     std::string line;
     std::string word;
 
-    std::vector<std::string> tokens;
+    std::map<std::string, AsmData> data;
     std::vector<AsmLabel> labels;
-    std::vector<Byte> programText;
+    std::vector<Byte> progmem;
 
-    std::map<size_t, std::string> labelUseIndexsUpdateMap; //Maps index of name in progmem -> name index
+    std::map<size_t, std::string> labelUseIndexsUpdateMap; //Maps index of use in progmem -> name of label
+    std::map<size_t, std::string> dataUseIndexsUpdateMap; //Maps index of use in progmem -> name of data
 
     {
         std::string input =
@@ -522,11 +587,14 @@ int main()
             "INC R1\n"
             "RTN\n"
             ".main:\n"
-            "MOV R1 0x0004 ; Load constant into register 1\n"
+            "MOV R1 0x04 ; Load constant into register 1\n"
             "MOV R2 R1 ; Load register 1 into register 2\n"
             "ADD R1 R2 ; Sum registers 1 and 2\n"
             "JSR increment\n"
-            "HALT";
+            "HALT\n"
+            ".data:\n"
+            "constant: 20\n"
+            "\n";
         std::stringstream preprocessingStream(input);
 
         //Preprocess: Handle labels and remove comments, tokenise
@@ -538,12 +606,19 @@ int main()
             std::stringstream lineStream(line);
 
             while (std::getline(lineStream >> std::ws, word, ' ')) {
-                std::printf("%s\n", word);
+                std::printf("%s\n", word.c_str());
 
                 if (word.back() == ':') {
+
                     if (isFirstWord) {
-                        labels.emplace_back(word.substr(0, word.length() - 1)); //Label
-                        break;
+                        if (word == ".data:") {
+                            ParseDataLabel(preprocessingStream, data);
+                            continue;
+                        }
+                        else {
+                            labels.emplace_back(word.substr(0, word.length() - 1)); //Label
+                            break;
+                        }
                     }
                     else {
                         throw Except("Labels cannot have spaces");
@@ -573,16 +648,49 @@ int main()
     //TODO:
     //Subroutines
 
-    //Move the .main label to the front
+    //Move the .data label to the front (if it exists)
     auto pivot = std::find_if(labels.begin(), labels.end(),
         [](const AsmLabel& label) -> bool {
-            return label.name == ".main";
+            return label.name == ".data";
         });
     if (pivot != labels.end()) {
         std::rotate(labels.begin(), pivot, pivot + 1);
     }
+
+    //Move the .main label to second (or front if no .data label)
+    pivot = std::find_if(labels.begin(), labels.end(),
+        [](const AsmLabel& label) -> bool {
+            return label.name == ".main";
+        });
+    if (pivot != labels.end()) {
+        std::rotate(labels.begin() + 1, pivot, pivot + 1);
+    }
     else {
         throw Except("The program must contain the .main label");
+    }
+
+    //Write Data to progmem
+    for (auto& dataPair : data)
+    {
+        auto& asmData = dataPair.second;
+
+        //Update memory address
+        asmData.memAddress = progmem.size();
+
+        switch (asmData.type)
+        {
+        case Type_Word:
+        case Type_WordAddress:
+        case Type_ByteAddress:
+            //Little endian system (least significant portion first)
+            progmem.push_back(asmData.value & 0xFF);
+            progmem.push_back(asmData.value >> 8);
+            break;
+        case Type_Byte:
+        case Type_Register:
+            progmem.push_back(asmData.value);
+            break;
+        }
     }
 
     //Instruction parsing
@@ -591,36 +699,34 @@ int main()
 
         //Update memory address for the label
         //Used later for updating label values
-        label.memAddress = programText.size();
+        label.memAddress = progmem.size();
 
         //Write to program memory
-        for (auto& i : label.instructions)
-        {
-            programText.push_back(GetOpcode(i));
-            for (auto& arg : i.args)
-            {
+        for (auto& i : label.instructions) {
+            progmem.push_back(GetOpcode(i));
+            for (auto& arg : i.args) {
                 switch (arg.type)
                 {
                 case Type_Word:
                 case Type_WordAddress:
                 case Type_ByteAddress:
                     //Little endian system (least significant portion first)
-                    programText.push_back(std::get<Word>(arg.value) & 0xFF);
-                    programText.push_back(std::get<Word>(arg.value) >> 8);
+                    progmem.push_back(std::get<Word>(arg.value) & 0xFF);
+                    progmem.push_back(std::get<Word>(arg.value) >> 8);
                     break;
                 case Type_Byte:
                 case Type_Register:
-                    programText.push_back(std::get<Word>(arg.value));
+                    progmem.push_back(std::get<Word>(arg.value));
                     break;
                 case Type_Label:
                     labelUseIndexsUpdateMap.insert({ 
-                        programText.size(), 
+                        progmem.size(), 
                         std::get<std::string>(arg.value) 
                         });
 
                     //Placeholder value
-                    programText.push_back(0);
-                    programText.push_back(0);
+                    progmem.push_back(0);
+                    progmem.push_back(0);
                     break;
                 }
             }
@@ -630,10 +736,10 @@ int main()
     //Update label values
     for (auto& updatingLabelPair : labelUseIndexsUpdateMap) {
         size_t index = updatingLabelPair.first;
-        Word value = GetLabel(updatingLabelPair.second, labels).memAddress;
+        Word value = GetLabelValue(updatingLabelPair.second, labels, data);
 
-        programText[index] = value & 0xFF;
-        programText[index + 1] = value >> 8;
+        progmem[index] = value & 0xFF;
+        progmem[index + 1] = value >> 8;
     }
 
     __noop;
@@ -644,9 +750,8 @@ int main()
     cpu.Reset(mem);
 
     //Load program
-    for (size_t i = 0; i < programText.size(); i++)
-    {
-        mem[i] = programText[i];
+    for (size_t i = 0; i < progmem.size(); i++) {
+        mem[i] = progmem[i];
     }
 
     cpu.Execute(100, mem);
