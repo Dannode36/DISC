@@ -7,17 +7,15 @@ typedef uint32_t DWord;
 
 typedef int64_t i64;
 
-enum Opcode
+enum Opcode : Byte
 {
-    // Opcodes must not excede 0x7F (01111111) due to the byteMode bit!
-
     //Special
-    OP_NOOP = 0x00,   //No Op
-    OP_RESET = 0x7E,   //Reset the CPU (clears registers and memory, resets flags)
-    OP_HALT = 0x7F,   //Stops the CPU execution of instuctions
+    OP_NOOP = 0x00,         //No Op
+    OP_RESET = 0x7E,        //Reset the CPU (clears registers and memory, resets flags)
+    OP_HALT = 0x7F,         //Stops the CPU execution of instuctions
 
     //Arithmetic
-    OP_ADD = 0x01,   //Add two registers, store in first
+    OP_ADD = 0x01,          //Add two registers, store in first
     OP_ADDC,                //Add word constant into register
     OP_ADDA,                //Add register and word at memory address, store in register
 
@@ -97,6 +95,7 @@ enum Opcode
     OP_SEI = 0x70,   //Set the global interrupt enable flag
     OP_CLI,                 //Clear the global interrupt enable flag
 
+    //Opcodes must not excede 0x7F (01111111) due to the byteMode bit!
 };
 
 enum Interrupt
@@ -217,7 +216,7 @@ struct CPU {
         memset(registers.aligned, 0, 6);
     }
 
-    Byte FetchByte(i64& cycles, Memory& mem) {
+    Byte NextByte(i64& cycles, Memory& mem) {
         cycles--;
         return mem[registers.PC++];
     }
@@ -243,7 +242,7 @@ struct CPU {
         return value;
     }
 
-    Word FetchWord(i64& cycles, Memory& mem) {
+    Word NextWord(i64& cycles, Memory& mem) {
         Word word = mem[registers.PC++];
         word |= (mem[registers.PC++] << 8); //Little endian system
 
@@ -287,13 +286,15 @@ struct CPU {
             //Is high priority interrupt flag set?
             if (registers.interruptFlags & I_NM) {
                 ExecuteInterrupt(cycles, mem, I_NM);
+                continue;
             }
             else if (registers.I && registers.interruptFlags > 0) {
                 int lowestSetBit = log2(registers.interruptFlags & -registers.interruptFlags) + 1;
                 ExecuteInterrupt(cycles, mem, (Interrupt)lowestSetBit);
+                continue;
             }
 
-            Byte instByte = FetchByte(cycles, mem);
+            Byte instByte = NextByte(cycles, mem);
             Opcode instruction = (Opcode)(instByte & 0x7F);
             bool byteMode = (instByte >> 7) == 1; //0 -> 16bit, 1 -> 8bit)
             
@@ -309,257 +310,257 @@ struct CPU {
                 std::cout << "INFO: HALT instruction executed. The CPU will now stop\n";
             } break;
             case OP_INC: {
-                Byte reg = FetchByte(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
                 registers[reg]++;
             } break;
             case OP_INCM: {
-                Word address = FetchWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 Word value = byteMode ? ReadByte(cycles, mem, address) : ReadWord(cycles, mem, address) + 1;
                 byteMode ? WriteByte(cycles, mem, address, value & 0xFF) : WriteWord(cycles, mem, address, value);
             } break;
             case OP_DEC: {
-                Byte reg = FetchByte(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
                 registers[reg]--;
             } break;
             case OP_DECM: {
-                Word address = FetchWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 Word value = byteMode ? ReadByte(cycles, mem, address) : ReadWord(cycles, mem, address) - 1;
                 byteMode ? WriteByte(cycles, mem, address, value & 0xFF) : WriteWord(cycles, mem, address, value);
 
             } break;
             case OP_ADD: {
-                Byte reg1 = FetchByte(cycles, mem);
-                Byte reg2 = FetchByte(cycles, mem);
+                Byte reg1 = NextByte(cycles, mem);
+                Byte reg2 = NextByte(cycles, mem);
 
                 registers[reg1] = registers[reg1] + registers[reg2];
             } break;
             case OP_ADDC: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
 
                 registers[reg] = registers[reg] + value;
             } break;
             case OP_ADDA: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, address) : ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] + memValue;
             } break;
             case OP_SUB: {
-                Byte reg1 = FetchByte(cycles, mem);
-                Byte reg2 = FetchByte(cycles, mem);
+                Byte reg1 = NextByte(cycles, mem);
+                Byte reg2 = NextByte(cycles, mem);
 
                 registers[reg1] = registers[reg1] - registers[reg2];
             } break;
             case OP_SUBC: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
 
                 registers[reg] = registers[reg] - value;
             } break;
             case OP_SUBA: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, address) : ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] - memValue;
             } break;
             case OP_MUL: {
-                Byte reg1 = FetchByte(cycles, mem);
-                Byte reg2 = FetchByte(cycles, mem);
+                Byte reg1 = NextByte(cycles, mem);
+                Byte reg2 = NextByte(cycles, mem);
 
                 registers[reg1] = registers[reg1] * registers[reg2];
             } break;
             case OP_MULC: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
 
                 registers[reg] = registers[reg] * value;
             } break;
             case OP_MULA: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, address) : ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] * memValue;
             } break;
             case OP_DIV: {
-                Byte reg1 = FetchByte(cycles, mem);
-                Byte reg2 = FetchByte(cycles, mem);
+                Byte reg1 = NextByte(cycles, mem);
+                Byte reg2 = NextByte(cycles, mem);
 
                 registers[reg1] = registers[reg1] / registers[reg2];
             } break;
             case OP_DIVC: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
 
                 registers[reg] = registers[reg] / value;
             } break;
             case OP_DIVA: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, address) : ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] / memValue;
             } break;
             case OP_UXT: {
-                Byte reg = FetchByte(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
                 registers[reg] &= 0xFF;
             }
             case OP_LDR: {
-                Byte reg1 = FetchByte(cycles, mem);
-                Byte reg2 = FetchByte(cycles, mem);
+                Byte reg1 = NextByte(cycles, mem);
+                Byte reg2 = NextByte(cycles, mem);
                 registers[reg1] = registers[reg2];
             } break;
             case OP_LDC: {
-                Byte reg = FetchByte(cycles, mem);
-                registers[reg] = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                registers[reg] = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
             } break;
             case OP_LDM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 registers[reg] = byteMode ? ReadByte(cycles, mem, address) : ReadWord(cycles, mem, address);
             } break;
             case OP_STRM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word address = NextWord(cycles, mem);
 
                 byteMode ? WriteByte(cycles, mem, address, registers[reg]) : WriteWord(cycles, mem, address, registers[reg]);
             } break;
             case OP_STCM: {
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
 
                 byteMode ? WriteByte(cycles, mem, address, value) : WriteWord(cycles, mem, address, value);
             } break;
             case OP_JMP: {
-                registers.PC = FetchWord(cycles, mem);
+                registers.PC = NextWord(cycles, mem);
             } break;
             case OP_JRZ: {
-                if (registers[FetchByte(cycles, mem)] == 0) {
-                    registers.PC = FetchWord(cycles, mem);
+                if (registers[NextByte(cycles, mem)] == 0) {
+                    registers.PC = NextWord(cycles, mem);
                 }
                 else {
-                    registers.PC += 2; //Avoid wasting 2 cycles with FetchWord()
+                    registers.PC += 2; //Avoid wasting 2 cycles with NextWord()
                 }
             } break;
             case OP_JRE: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
 
                 if (registers[reg] == value) {
                     registers.PC = address;
                 }
             } break;
             case OP_JRN: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
 
                 if (registers[reg] != value) {
                     registers.PC = address;
                 }
             } break;
             case OP_JRG: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
 
                 if (registers[reg] > value) {
                     registers.PC = address;
                 }
             } break;
             case OP_JRGE: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
 
                 if (registers[reg] >= value) {
                     registers.PC = address;
                 }
             } break;
             case OP_JRL: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
 
                 if (registers[reg] < value) {
                     registers.PC = address;
                 }
             } break;
             case OP_JRLE: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
 
                 if (registers[reg] <= value) {
                     registers.PC = address;
                 }
             } break;
             case OP_JREM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word memAddress = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word memAddress = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, memAddress) : ReadWord(cycles, mem, memAddress);
-                Word jumpAddress = FetchWord(cycles, mem);
+                Word jumpAddress = NextWord(cycles, mem);
 
                 if (registers[reg] == memValue) {
                     registers.PC = jumpAddress;
                 }
             } break;
             case OP_JRNM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word memAddress = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word memAddress = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, memAddress) : ReadWord(cycles, mem, memAddress);
-                Word jumpAddress = FetchWord(cycles, mem);
+                Word jumpAddress = NextWord(cycles, mem);
 
                 if (registers[reg] != memValue) {
                     registers.PC = jumpAddress;
                 }
             } break;
             case OP_JRGM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word memAddress = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word memAddress = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, memAddress) : ReadWord(cycles, mem, memAddress);
-                Word jumpAddress = FetchWord(cycles, mem);
+                Word jumpAddress = NextWord(cycles, mem);
 
                 if (registers[reg] > memValue) {
                     registers.PC = jumpAddress;
                 }
             } break;
             case OP_JRGEM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word memAddress = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word memAddress = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, memAddress) : ReadWord(cycles, mem, memAddress);
-                Word jumpAddress = FetchWord(cycles, mem);
+                Word jumpAddress = NextWord(cycles, mem);
 
                 if (registers[reg] >= memValue) {
                     registers.PC = jumpAddress;
                 }
             } break;
             case OP_JRLM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word memAddress = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word memAddress = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, memAddress) : ReadWord(cycles, mem, memAddress);
-                Word jumpAddress = FetchWord(cycles, mem);
+                Word jumpAddress = NextWord(cycles, mem);
 
                 if (registers[reg] < memValue) {
                     registers.PC = jumpAddress;
                 }
             } break;
             case OP_JRLEM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word memAddress = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word memAddress = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, memAddress) : ReadWord(cycles, mem, memAddress);
-                Word jumpAddress = FetchWord(cycles, mem);
+                Word jumpAddress = NextWord(cycles, mem);
 
                 if (registers[reg] <= memValue) {
                     registers.PC = jumpAddress;
                 }
             } break;
             case OP_JSR: {
-                Word newPC = FetchWord(cycles, mem);
+                Word newPC = NextWord(cycles, mem);
                 StackPushWord(cycles, mem, registers.PC); //Push program counter to stack
                 registers.PC = newPC; //Jump to start of subroutine
             } break;
@@ -567,29 +568,29 @@ struct CPU {
                 registers.PC = StackPopWord(cycles, mem);
             } break;
             case OP_PUSH: {
-                Byte reg = FetchByte(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
                 StackPushWord(cycles, mem, registers[reg]);
             } break;
             case OP_PUSHM: {
-                Byte reg = FetchByte(cycles, mem);
-                Word address = FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 Word memValue = byteMode ? ReadByte(cycles, mem, address) : ReadWord(cycles, mem, address);
                 StackPushWord(cycles, mem, registers[reg]);
             } break;
             case OP_PUSHC: {
-                Byte reg = FetchByte(cycles, mem);
-                Word value = byteMode ? FetchByte(cycles, mem) : FetchWord(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
+                Word value = byteMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
                 StackPushWord(cycles, mem, registers[reg]);
             } break;
             case OP_PUSHS: {
                 StackPushByte(cycles, mem, registers.status);
             } break;
             case OP_POP: {
-                Byte reg = FetchByte(cycles, mem);
+                Byte reg = NextByte(cycles, mem);
                 registers[reg] = byteMode ? StackPopByte(cycles, mem) : StackPopWord(cycles, mem);
             } break;
             case OP_POPM: {
-                Word address = FetchWord(cycles, mem);
+                Word address = NextWord(cycles, mem);
                 Word stackValue = byteMode ? StackPopByte(cycles, mem) : StackPopWord(cycles, mem);
                 byteMode ? WriteByte(cycles, mem, address, stackValue & 0xFF) : WriteWord(cycles, mem, address, stackValue);
             } break;
@@ -597,13 +598,12 @@ struct CPU {
                 registers.status = StackPopByte(cycles, mem);
             } break;
             default:
-                std::cout << "ERROR: Illegal instruction\n";
-                throw;
+                throw std::exception("ERROR: Illegal instruction\n");
             }
         }
 
         if (cycles < 0) {
-            std::cout << "WARNING: CPU used additional cycles\n";
+            std::cout << "WARNING: CPU used additional cycles. This is unintended behaviour\n";
         }
     }
 };

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
-#include "../cpu.h"
+#include <fstream>
+#include "../DIS-Emulator/cpu.h"
 #include <vector>
 #include <map>
 #include <span>
@@ -11,31 +12,31 @@ typedef std::variant<Word, std::string> AsmVar;
 
 enum Instruction {
     INST_NOOP = 0,
-    INST_RESET,  
-    INST_HALT,   
+    INST_RESET,
+    INST_HALT,
     INST_ADD,
-    INST_SUB,    
-    INST_MUL,    
-    INST_DIV,    
-    INST_CMP,    
-    INST_INC,    
-    INST_DEC,    
+    INST_SUB,
+    INST_MUL,
+    INST_DIV,
+    INST_CMP,
+    INST_INC,
+    INST_DEC,
     INST_UXT,
     INST_MOV,
     INST_JSR = 0x40,
-    INST_RTN,    
-    INST_JMP,    
-    INST_JRZ,    
-    INST_JRE,    
-    INST_JRN,    
-    INST_JRG,    
-    INST_JRGE,   
-    INST_JRL,    
-    INST_JRLE,   
+    INST_RTN,
+    INST_JMP,
+    INST_JRZ,
+    INST_JRE,
+    INST_JRN,
+    INST_JRG,
+    INST_JRGE,
+    INST_JRL,
+    INST_JRLE,
     INST_PUSH,
-    INST_POP,    
-    INST_PUSHS,  
-    INST_POPS,   
+    INST_POP,
+    INST_PUSHS,
+    INST_POPS,
     INST_SEI,
     INST_CLI,
 
@@ -372,6 +373,7 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         }
         throw;
     }
+    throw Except("ERROR: No matching opcode found for instruction");
 }
 
 static Instruction ParseAssemblyInstruction(const std::string& str) {
@@ -490,8 +492,9 @@ struct AsmLabel {
                 continue;
             }
             else if (isFirstWord) {
-                isInstruction = true;
                 asmInst.inst = ParseAssemblyInstruction(word);
+                isInstruction = true;
+                __noop;
             }
             else {
                 Type type = GetVarType(word);
@@ -569,6 +572,13 @@ static void ParseDataLabel(std::stringstream& ppStream, std::map<std::string, As
 
 }
 
+static void SerializeToDisk(std::vector<Byte>& data, std::string filename) {
+    std::printf("Writing program to disk...\n");
+    std::ofstream outfile(filename, std::ios::out | std::ios::binary);
+    outfile.write(reinterpret_cast<const char*>(data.data()), data.size()); //this is head ache
+    std::printf(("Finished writing program to disk: \"" + filename + "\"\n").c_str());
+}
+
 int main()
 {
     std::string line;
@@ -592,8 +602,6 @@ int main()
             "ADD R1 R2 ; Sum registers 1 and 2\n"
             "JSR increment\n"
             "HALT\n"
-            ".data:\n"
-            "constant: 20\n"
             "\n";
         std::stringstream preprocessingStream(input);
 
@@ -645,7 +653,6 @@ int main()
 
     //4. The final pass should connect any necassary references like variables and suroutine addresses
 
-    //TODO:
     //Subroutines
 
     //Move the .data label to the front (if it exists)
@@ -749,9 +756,12 @@ int main()
 
     cpu.Reset(mem);
 
+    SerializeToDisk(progmem, "program.disc");
+
     //Load program
-    for (size_t i = 0; i < progmem.size(); i++) {
-        mem[i] = progmem[i];
+    errno_t progLoadErrVal = memcpy_s(mem.Data, Memory::MEM_SIZE, progmem.data(), progmem.size());
+    if (progLoadErrVal != 0) {
+        throw Except("ERROR: Failed to load program. Not enough memory");
     }
 
     cpu.Execute(100, mem);
