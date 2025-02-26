@@ -129,10 +129,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Dans-Instruction-Set-Assembler.cpp" />
+    <ClCompile Include="Assembler.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Cortex-M7-Emulator.vcxproj">
+    <ProjectReference Include="..\DIS-Emulator\DIS-Emulator.vcxproj">
       <Project>{b1a83e1f-b07a-4c00-b2f1-7d3de0914207}</Project>
     </ProjectReference>
   </ItemGroup>
