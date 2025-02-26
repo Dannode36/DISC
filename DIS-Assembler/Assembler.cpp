@@ -6,6 +6,7 @@
 #include <map>
 #include <span>
 #include <variant>
+#include <algorithm>
 
 //Forward declarations & typedef's
 
@@ -92,12 +93,14 @@ struct AsmLabel {
         bool isInstruction = false;
         AsmInstruction asmInst;
 
+        std::printf(("Label: " + name + "\n").c_str());
+
         for (size_t i = 0; i < tokens.size(); i++)
         {
             const auto& word = tokens[i];
-            std::printf((word + "\n").c_str());
 
             if (word == "\n") {
+                std::printf("\n");
                 isFirstWord = true;
 
                 if (isInstruction) { //Push complete instruction into vector
@@ -107,11 +110,14 @@ struct AsmLabel {
                 continue;
             }
             else if (isFirstWord) {
+                std::printf((word + "\n").c_str());
+
                 asmInst.inst = ParseAssemblyInstruction(word);
                 isInstruction = true;
-                __noop;
             }
             else {
+                std::printf((word + "\n").c_str());
+
                 Type type = GetVarType(word);
                 /*if (type == Type_Label) {
                     labelUseIndexsUpdateMap.insert({})
@@ -144,7 +150,7 @@ static Type GetVarType(const std::string& str) {
             return Type_WordAddress; //Default to word size
         }
     }
-    else if (str.front() == 'R') {
+    else if (str.front() == 'r') {
         return Type_Register;
     }
     else if (str.substr(0, 2) == "0x") {
@@ -409,9 +415,8 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
             return (Opcode)(OP_POPM | 0x80);
         case Type_Byte:
         case Type_Register:
-            return OP_POP; //Need a way to set byte mode flag
+            return OP_POP;
         }
-                             throw;
         case INST_PUSHS:
             return OP_PUSHS;
         case INST_POPS:
@@ -428,93 +433,91 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
     throw Except("ERROR: No matching opcode found for instruction");
 }
 static Instruction ParseAssemblyInstruction(const std::string& str) {
-    if (str == "NOP") {
+    if (str == "noop") {
         return INST_NOOP;
     }
-    else if (str == "RESET") {
+    else if (str == "reset") {
         return INST_RESET;
     }
-    else if (str == "HALT") {
+    else if (str == "halt") {
         return INST_HALT;
     }
-    else if (str == "ADD") {
+    else if (str == "add") {
         return INST_ADD;
     }
-    else if (str == "SUB") {
+    else if (str == "sub") {
         return INST_SUB;
     }
-    else if (str == "MUl") {
+    else if (str == "mul") {
         return INST_MUL;
     }
-    else if (str == "DIV") {
+    else if (str == "div") {
         return INST_DIV;
     }
-    else if (str == "CMP") {
+    else if (str == "cmp") {
         return INST_CMP;
     }
-    else if (str == "INC") {
+    else if (str == "inc") {
         return INST_INC;
     }
-    else if (str == "DEC") {
+    else if (str == "dec") {
         return INST_DEC;
     }
-    else if (str == "UXT") {
+    else if (str == "uxt") {
         return INST_UXT;
     }
-    else if (str == "MOV") {
+    else if (str == "mov") {
         return INST_MOV;
     }
-    else if (str == "JSR") {
+    else if (str == "jsr") {
         return INST_JSR;
     }
-    else if (str == "RTN") {
+    else if (str == "rtn") {
         return INST_RTN;
     }
-    else if (str == "JMP") {
+    else if (str == "jmp") {
         return INST_JMP;
     }
-    else if (str == "JRZ") {
+    else if (str == "jrz") {
         return INST_JRZ;
     }
-    else if (str == "JRE") {
+    else if (str == "jre") {
         return INST_JRE;
     }
-    else if (str == "JRN") {
+    else if (str == "jrn") {
         return INST_JRN;
     }
-    else if (str == "JRG") {
+    else if (str == "jrg") {
         return INST_JRG;
     }
-    else if (str == "JRGE") {
+    else if (str == "jrge") {
         return INST_JRGE;
     }
-    else if (str == "JRL") {
+    else if (str == "jrl") {
         return INST_JRL;
     }
-    else if (str == "JRLE") {
+    else if (str == "jrle") {
         return INST_JRLE;
     }
-    else if (str == "PUSH") {
+    else if (str == "push") {
         return INST_PUSH;
     }
-    else if (str == "POP") {
+    else if (str == "pop") {
         return INST_POP;
     }
-    else if (str == "PUSHS") {
+    else if (str == "pushs") {
         return INST_PUSHS;
     }
-    else if (str == "POPS") {
+    else if (str == "pops") {
         return INST_POPS;
     }
-    else if (str == "SEI") {
+    else if (str == "sei") {
         return INST_SEI;
     }
-    else if (str == "CLI") {
+    else if (str == "cli") {
         return INST_CLI;
     }
-    else {
-        throw;
-    }
+    throw Except("ERROR: Invalid assembly instruction");
 }
 static Word GetLabelValue(std::string name, const std::vector<AsmLabel>& labels) {
     auto itr = std::find_if(labels.begin(), labels.end(), 
@@ -524,13 +527,7 @@ static Word GetLabelValue(std::string name, const std::vector<AsmLabel>& labels)
     if (itr != labels.end()) {
         return itr->memAddress;
     }
-}
-
-static void SerializeToDisk(std::vector<Byte>& data, std::string filename) {
-    std::printf("Writing program to disk...\n");
-    std::ofstream outfile(filename, std::ios::out | std::ios::binary);
-    outfile.write(reinterpret_cast<const char*>(data.data()), data.size()); //this is head ache
-    std::printf(("Finished writing program to disk: \"" + filename + "\"\n").c_str());
+    throw Except(("Label does not exist: " + name).c_str());
 }
 
 static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) {
@@ -542,15 +539,10 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
     std::string word;
     std::stringstream preprocessingStream(input);
     while (std::getline(preprocessingStream, line)) { //Tokenise: Handle labels and remove comments, tokenise
-        std::printf("Parsing line...\n");
-
         bool isFirstWord = true;
-        bool lineHasTokens = false;
         std::stringstream lineStream(line);
 
         while (std::getline(lineStream >> std::ws, word, ' ')) {
-            std::printf("%s\n", word.c_str());
-
             if (word.back() == ':') {
 
                 if (isFirstWord) {
@@ -565,14 +557,15 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
                 break;
             }
             else {
+                //Lower string
+                std::transform(word.begin(), word.end(), word.begin(), [](unsigned char c) { return std::tolower(c); });
                 labels.back().tokens.push_back(word);
-                lineHasTokens = true;
             }
 
             isFirstWord = false;
         }
 
-        if (lineHasTokens) {
+        if (labels.back().tokens.size() != 0) {
             labels.back().tokens.push_back("\n"); //For knowing which token is first on a line
         }
     }
@@ -583,7 +576,7 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
             return label.name == ".main";
         });
     if (pivot != labels.end()) {
-        std::rotate(labels.begin() + 1, pivot, pivot + 1);
+        std::rotate(labels.begin(), pivot, pivot + 1);
     }
     else {
         throw Except("The program must contain the .main label");
@@ -595,7 +588,7 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
 
         //Update memory address for the label
         //Used later for updating label values
-        label.memAddress = progmem.size();
+        label.memAddress = static_cast<Word>(progmem.size());
 
         //Write to program memory
         for (auto& i : label.instructions) {
@@ -612,7 +605,7 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
                     break;
                 case Type_Byte:
                 case Type_Register:
-                    progmem.push_back(std::get<Word>(arg.value));
+                    progmem.push_back((Byte)std::get<Word>(arg.value));
                     break;
                 case Type_Label:
                     labelUseIndexsUpdateMap.insert({
@@ -638,32 +631,43 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
         progmem[index + 1] = value >> 8;
     }
 }
+static void SerializeToDisk(std::vector<Byte>& data, std::string filename) {
+    std::printf("Writing program to disk...\n");
+    std::ofstream outfile(filename, std::ios::out | std::ios::binary);
+    outfile.write(reinterpret_cast<const char*>(data.data()), data.size()); //this is head ache
+    std::printf(("Finished writing program to disk: \"" + filename + "\"\n").c_str());
+}
 
-int main()
+int main(int argc, char* argv[])
 {
-    std::string input =
-        "increment:\n"
-        "INC R1\n"
-        "RTN\n"
-        ".main:\n"
-        "MOV R1 0x04 ; Load constant into register 1\n"
-        "MOV R2 R1 ; Load register 1 into register 2\n"
-        "ADD R1 R2 ; Sum registers 1 and 2\n"
-        "JSR increment\n"
-        "HALT\n"
-        "\n";
+    std::string input;
+    if (argc > 1) {
+        std::ifstream stream(argv[1]);
+        std::stringstream buffer;
+        buffer << stream.rdbuf();
+        input = buffer.str();
+    }
+    else {
+        input =
+            "increment:\n"
+            "inc r1\n"
+            "rtn\n"
+            ".main:\n"
+            "mov r1 0x04 ; Load constant into register 1\n"
+            "mov r2 r1 ; Load register 1 into register 2\n"
+            "add r1 r2 ; Sum registers 1 and 2\n"
+            "jsr increment\n"
+            "halt\n"
+            "\n";
+    }
 
     std::vector<Byte> progmem;
     ParseAssembly(input, progmem);
-
-    __noop;
+    SerializeToDisk(progmem, "program.disa");
 
     Memory mem{};
     CPU cpu{};
-
     cpu.Reset(mem);
-
-    SerializeToDisk(progmem, "program.disc");
 
     //Load program
     errno_t progLoadErrVal = memcpy_s(mem.Data, Memory::MEM_SIZE, progmem.data(), progmem.size());
@@ -672,6 +676,7 @@ int main()
     }
 
     cpu.Execute(100, mem);
+    cpu.CoreDump();
 
     __noop;
 }

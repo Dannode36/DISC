@@ -17,6 +17,7 @@ int main()
     mem[0x0008] = OP_HALT;
 
     cpu.Execute(129, mem); //This simply increment loop takes 129 cycles x_x (JRN eats up 6 cycles)
+    cpu.CoreDump();
 
     __noop; //For breakpoint debugging
 }

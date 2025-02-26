@@ -1,0 +1,17 @@
+.main:
+	push 0x02
+	push 0x04
+	jsr multiply ; Result will be stored into r2
+
+	mov r3 0x02 ; Load constant into register 3
+	mov r4 0x04 ; Load constant into register 4
+	mov r5 r3
+	mul r5 r4
+	halt 
+
+multiply:
+	pop r1
+	pop r0
+	mov r2 r0
+	mul r2 r1
+	rtn
