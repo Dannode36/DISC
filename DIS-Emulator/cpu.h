@@ -137,7 +137,7 @@ struct Memory
     static constexpr Word MEM_SIZE = 0xFFFF;
     static constexpr Word INTERRUPT_TABLE = 0xFFF0;
 
-    Byte* Data = new Byte[MEM_SIZE];
+    Byte Data[MEM_SIZE];
     //Byte Data[MEM_SIZE];
 
     void Clear() {
@@ -209,7 +209,7 @@ struct CPU {
         mem.Clear();
 
         registers.PC = 0;
-        registers.SP = 0xFFFF; //Stack grows backwards from end
+        registers.SP = 0x00A0; //Stack grows backwards from end
         memset(registers.aligned, 0, 6);
     }
 

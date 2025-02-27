@@ -2,6 +2,7 @@
 	push 0x02
 	push 0x04
 	jsr multiply ; Result will be stored into r2
+	add rsp 0x08
 
 	mov r3 0x02 ; Load constant into register 3
 	mov r4 0x04 ; Load constant into register 4
@@ -10,8 +11,8 @@
 	halt 
 
 multiply:
-	pop r1
-	pop r0
+	mov r0 [rsp]
+	mov r1 r0
 	mov r2 r0
 	mul r2 r1
 	rtn

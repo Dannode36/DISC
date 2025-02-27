@@ -75,7 +75,7 @@ struct AsmData {
 struct AsmArgument
 {
     Type type;
-    std::variant<Word, std::string> value;
+    AsmVar value;
 };
 struct AsmInstruction
 {
@@ -130,7 +130,32 @@ struct AsmLabel {
         }
     }
 };
+struct AsmAddress {
+    std::string expression;
 
+    //TODO: make this a bit more expansive (e.g. allow for mathamatical expression)
+    Word Resolve() {
+        if (std::isdigit(expression.front())) {
+
+        }
+        else {
+            return
+        }
+    }
+};
+static Byte GetRegisterByName(const std::string& name) {
+    if (std::isdigit(name[1])) {
+        return (Word)std::stoi(name.substr(1));
+    }
+    else {
+        if (name == "rpc") {
+            return (Word)7;
+        }
+        else if (name == "rsp") {
+            return (Word)8;
+        }
+    }
+}
 static Type GetVarType(const std::string& str) {
     size_t len = str.length();
     size_t addrEndBrktIndex = str.find(']');
@@ -189,8 +214,9 @@ static AsmVar GetVarValue(std::string str, Type type) {
     case Type_ByteAddress:
     case Type_WordAddress:
         return (Word)std::stoi(str.substr(1, str.length() - 4));
-    case Type_Register:
-        return (Word)std::stoi(str.substr(1));
+    case Type_Register: {
+        return GetRegisterByName(str);
+    }
     case Type_Label:
         return str;
     default:
