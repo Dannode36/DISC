@@ -27,46 +27,44 @@ static Instruction ParseAssemblyInstruction(const std::string& str);
 
 enum Instruction {
     INST_NOOP = 0,
-    INST_RESET,
-    INST_HALT,
-    INST_ADD,
-    INST_SUB,
-    INST_MUL,
-    INST_DIV,
-    INST_CMP,
-    INST_INC,
-    INST_DEC,
-    INST_UXT,
-    INST_MOV,
-    INST_JSR = 0x40,
-    INST_RTN,
-    INST_JMP,
-    INST_JRZ,
-    INST_JRE,
-    INST_JRN,
-    INST_JRG,
-    INST_JRGE,
-    INST_JRL,
-    INST_JRLE,
-    INST_PUSH,
-    INST_POP,
-    INST_PUSHS,
-    INST_POPS,
-    INST_SEI,
-    INST_CLI,
+    INST_RESET,         //Reset CPU registers and status
+    INST_HALT,          //Stop CPU
+    INST_ADD,           //Add
+    INST_SUB,           //Subtract
+    INST_MUL,           //Multiply
+    INST_DIV,           //Division
+    //INST_CMP,         //Compare
+    INST_INC,           //Increment
+    INST_DEC,           //Decrement
+    INST_UXT,           //Zero extend
+    INST_MOV,           //Move
+    INST_JSR = 0x40,    //Jump to subroutine
+    INST_RTN,           //Return from subroutine
+    INST_JMP,           //Jump program counter
+    INST_JRZ,           //Jump if register is zero
+    INST_JRE,           //Jump if register is equal
+    INST_JRN,           //Jump if register is not equal
+    INST_JRG,           //Jump if register is greater
+    INST_JRGE,          //Jump if register is greater or equal
+    INST_JRL,           //Jump if register is less
+    INST_JRLE,          //Jump if register is less or equal
+    INST_PUSH,          //Push onto stack
+    INST_POP,           //Pop from stack
+    INST_PUSHS,         //Push status onto stack
+    INST_POPS,          //Pop status from stack
+    INST_SETI,          //Set interrupt
+    INST_CLRI,          //Clear interrupt
 
     Count, //Keep last
 };
 enum Type
 {
     Type_Word,
-    Type_Byte,
     Type_Label,
-    Type_WordAddress,
-    Type_ByteAddress,
+    Type_Address,
+    Type_AddressRegister,
     Type_Register,
 };
-
 struct AsmData {
     Type type;
     Word value;
@@ -130,31 +128,80 @@ struct AsmLabel {
         }
     }
 };
-struct AsmAddress {
-    std::string expression;
 
-    //TODO: make this a bit more expansive (e.g. allow for mathamatical expression)
-    Word Resolve() {
-        if (std::isdigit(expression.front())) {
+const std::map<std::string, Instruction> instructionAliases {
+    //x86 style
+    { "noop", INST_NOOP},
+    { "reset", INST_RESET},
+    { "halt", INST_HALT},
+    { "add", INST_ADD},
+    { "sub", INST_SUB},
+    { "mul", INST_MUL},
+    { "div", INST_DIV},
+    { "inc", INST_INC},
+    { "dec", INST_DEC},
+    { "uxt", INST_UXT},
+    { "mov", INST_MOV},
+    { "jsr", INST_JSR},
+    { "rtn", INST_RTN},
+    { "jmp", INST_JMP},
+    { "jrz", INST_JRZ},
+    { "jre", INST_JRE},
+    { "jrn", INST_JRN},
+    { "jrg", INST_JRG},
+    { "jrge", INST_JRGE},
+    { "jrl", INST_JRL},
+    { "jrle", INST_JRLE},
+    { "push", INST_PUSH},
+    { "pop", INST_POP},
+    { "pushs", INST_PUSHS},
+    { "pops", INST_POPS},
+    { "sei", INST_SETI},
+    { "cli", INST_CLRI},
 
-        }
-        else {
-            return
-        }
-    }
+    //Dan style
+    { "noop", INST_NOOP},
+    { "reset", INST_RESET},
+    { "halt", INST_HALT},
+    { "add", INST_ADD},
+    { "sub", INST_SUB},
+    { "mul", INST_MUL},
+    { "div", INST_DIV},
+    { "inc", INST_INC},
+    { "dec", INST_DEC},
+    { "extend", INST_UXT},
+    { "move", INST_MOV},
+    { "jsr", INST_JSR},
+    { "return", INST_RTN},
+    { "jump", INST_JMP},
+    { "jzero", INST_JRZ},
+    { "jequal", INST_JRE},
+    { "jnequal", INST_JRN},
+    { "jrg", INST_JRG},
+    { "jrge", INST_JRGE},
+    { "jrl", INST_JRL},
+    { "jrle", INST_JRLE},
+    { "push", INST_PUSH},
+    { "pop", INST_POP},
+    { "pushs", INST_PUSHS},
+    { "pops", INST_POPS},
+    { "seti", INST_SETI},
+    { "cleari", INST_CLRI},
 };
+
 static Byte GetRegisterByName(const std::string& name) {
     if (std::isdigit(name[1])) {
-        return (Word)std::stoi(name.substr(1));
+        return (Byte)std::stoi(name.substr(1));
     }
     else {
         if (name == "rpc") {
-            return (Word)7;
+            return (Byte)7;
         }
         else if (name == "rsp") {
-            return (Word)8;
+            return (Byte)8;
         }
     }
+    throw Except("Invalid register name");
 }
 static Type GetVarType(const std::string& str) {
     size_t len = str.length();
@@ -162,38 +209,21 @@ static Type GetVarType(const std::string& str) {
 
     if (str.front() == '[' && addrEndBrktIndex != -1) { //Address
         //If the address has a number of bytes to read specified
-        if (str.substr(addrEndBrktIndex, 2) == "]:") {
-            if (str.substr(addrEndBrktIndex + 2) == "1") {
-                return Type_ByteAddress;
-            }
-            else if (str.substr(addrEndBrktIndex + 2) == "2") {
-                return Type_WordAddress;
-            }
-            throw;
+        if (isdigit(str[2])) { //If the address is a constant
+            return Type_Address;
         }
         else {
-            return Type_WordAddress; //Default to word size
+            return Type_AddressRegister; //Address must be read from a register
         }
     }
     else if (str.front() == 'r') {
         return Type_Register;
     }
     else if (str.substr(0, 2) == "0x") {
-        if (str.length() == 4) {
-            return Type_Byte;
-        }
-        else {
-            return Type_Word;
-        }
+        return Type_Word;
     }
     else if (isdigit(str.front())) {
-        //Optimize constants to bytes if possible
-        if (std::stoi(str) <= 0xFF) {
-            return Type_Byte;
-        }
-        else {
-            return Type_Word;
-        }
+        return Type_Word;
     }
     else {
         return Type_Label;
@@ -202,8 +232,7 @@ static Type GetVarType(const std::string& str) {
 static AsmVar GetVarValue(std::string str, Type type) {
     switch (type)
     {
-    case Type_Word:
-    case Type_Byte: {
+    case Type_Word: {
         if (str.substr(0, 2) == "0x") {
             return (Word)std::stoi(str.substr(3), nullptr, 16);
         }
@@ -211,9 +240,10 @@ static AsmVar GetVarValue(std::string str, Type type) {
             return (Word)std::stoi(str);
         }
     }
-    case Type_ByteAddress:
-    case Type_WordAddress:
-        return (Word)std::stoi(str.substr(1, str.length() - 4));
+    case Type_Address:
+        return (Word)std::stoi(str.substr(1, str.length() - 2)); //Should be the constant portion
+    case Type_AddressRegister:
+        return GetRegisterByName(str.substr(1, str.length() - 2)); //Should be the register name portion
     case Type_Register: {
         return GetRegisterByName(str);
     }
@@ -237,11 +267,9 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_ADDC;
-        case Type_Byte:
-            return (Opcode)(OP_ADDC | 0x80);
-        case Type_WordAddress:
+        case Type_Address:
             return OP_ADDA;
-        case Type_ByteAddress:
+        case Type_AddressRegister:
             return (Opcode)(OP_ADDA | 0x80);
         case Type_Register:
             return OP_ADD;
@@ -252,12 +280,8 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_SUBC;
-        case Type_Byte:
-            return (Opcode)(OP_SUBC | 0x80);
-        case Type_WordAddress:
+        case Type_Address:
             return OP_SUBA;
-        case Type_ByteAddress:
-            return (Opcode)(OP_SUBA | 0x80);
         case Type_Register:
             return OP_SUB;
         }
@@ -267,12 +291,8 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_MULC;
-        case Type_Byte:
-            return (Opcode)(OP_MULC | 0x80);
-        case Type_WordAddress:
+        case Type_Address:
             return OP_MULA;
-        case Type_ByteAddress:
-            return (Opcode)(OP_MULA | 0x80);
         case Type_Register:
             return OP_MUL;
         }
@@ -282,59 +302,42 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_DIVC;
-        case Type_Byte:
-            return (Opcode)(OP_DIVC | 0x80);
-        case Type_WordAddress:
+        case Type_Address:
             return OP_DIVA;
-        case Type_ByteAddress:
-            return (Opcode)(OP_DIVA | 0x80);
         case Type_Register:
             return OP_DIV;
         }
         throw;
-    case INST_CMP:
+    /*case INST_CMP:
         switch (asmInst.args[1].type)
         {
         case Type_Word:
         case Type_Byte:
         case Type_Register:
             return OP_CMP;
-        case Type_WordAddress:
+        case Type_Address:
             return OP_CMPA;
         case Type_ByteAddress:
             return (Opcode)(OP_CMPA | 0x80);
         }
-        throw;
+        throw;*/
     case INST_INC:
         switch (asmInst.args[0].type)
         {
-        case Type_Byte:
         case Type_Register:
             return OP_INC;
-        case Type_Word:
-        case Type_WordAddress:
-            return OP_INCM;
-        case Type_ByteAddress:
-            return (Opcode)(OP_INCM | 0x80);
         }
         throw;
     case INST_DEC:
         switch (asmInst.args[0].type)
         {
-        case Type_Byte:
         case Type_Register:
             return OP_DEC;
-        case Type_Word:
-        case Type_WordAddress:
-            return OP_DECM;
-        case Type_ByteAddress:
-            return (Opcode)(OP_DECM | 0x80);
         }
         throw;
     case INST_UXT:
         switch (asmInst.args[0].type)
         {
-        case Type_Byte:
         case Type_Register:
             return OP_UXT;
         default:
@@ -349,42 +352,34 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
             {
             case Type_Word:
                 return OP_LDC;
-            case Type_Byte:
-                return (Opcode)(OP_LDC | 0x80);
-            case Type_WordAddress:
+            case Type_Address:
                 return OP_LDM;
-            case Type_ByteAddress:
+            case Type_AddressRegister:
                 return (Opcode)(OP_LDM | 0x80);
             case Type_Register:
                 return OP_LDR;
             }
         } break;
-        case Type_WordAddress: {
+        case Type_Address: {
             switch (asmInst.args[1].type)
             {
             case Type_Word:
                 return OP_STCM;
-            case Type_Byte:
-                throw Except("Cannot move a byte into a word location (requires implicit zero extending)");
-            case Type_WordAddress:
-                return OP_STMM;
-            case Type_ByteAddress:
-                throw Except("Cannot move a word into a byte location (requires implicit truncation)");
+            case Type_Address:
+            case Type_AddressRegister:
+                throw Except("Cannot move memory into memory");
             case Type_Register:
                 return OP_STRM;
             }
         } break;
-        case Type_ByteAddress: {
+        case Type_AddressRegister: {
             switch (asmInst.args[1].type)
             {
             case Type_Word:
-                throw Except("Cannot move a word into a byte location (requires implicit truncation)");
-            case Type_Byte:
                 return (Opcode)(OP_STCM | 0x80);
-            case Type_WordAddress:
-                throw Except("Cannot move a byte into a word location (requires implicit zero extending)");
-            case Type_ByteAddress:
-                return (Opcode)(OP_STMM | 0x80);
+            case Type_Address:
+            case Type_AddressRegister:
+                throw Except("Cannot move memory into memory");
             case Type_Register:
                 return (Opcode)(OP_STRM | 0x80);
             }
@@ -404,10 +399,10 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
     case INST_JRGE:
     case INST_JRL:
     case INST_JRLE: {
-        if (asmInst.args[1].type == Type_WordAddress) {
+        if (asmInst.args[1].type == Type_Address) {
             return (Opcode)(asmInst.inst + 7);
         }
-        else if (asmInst.args[1].type == Type_ByteAddress) {
+        else if (asmInst.args[1].type == Type_AddressRegister) {
             return (Opcode)((asmInst.inst + 7) | 0x80);
         }
         else {
@@ -419,129 +414,34 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_PUSHC;
-        case Type_Byte:
-            return (Opcode)(OP_PUSHC | 0x80);
-        case Type_WordAddress:
-            return OP_PUSHM;
-        case Type_ByteAddress:
-            return (Opcode)(OP_PUSHM | 0x80);
         case Type_Register:
             return OP_PUSH;
-        default:
-            break;
         }
         throw;
     case INST_POP:
         switch (asmInst.args[0].type)
         {
         case Type_Word:
-        case Type_WordAddress:
-            return OP_POPM;
-        case Type_ByteAddress: {
-            return (Opcode)(OP_POPM | 0x80);
-        case Type_Byte:
         case Type_Register:
             return OP_POP;
         }
-        case INST_PUSHS:
-            return OP_PUSHS;
-        case INST_POPS:
-            return OP_POPS;
-        case INST_SEI:
-            return OP_SEI;
-        case INST_CLI:
-            return OP_CLI;
-        default:
-            break;
-        }
         throw;
+    case INST_PUSHS:
+        return OP_PUSHS;
+    case INST_POPS:
+        return OP_POPS;
+    case INST_SETI:
+        return OP_SEI;
+    case INST_CLRI:
+        return OP_CLI;
+    default:
+        break;
     }
     throw Except("ERROR: No matching opcode found for instruction");
 }
 static Instruction ParseAssemblyInstruction(const std::string& str) {
-    if (str == "noop") {
-        return INST_NOOP;
-    }
-    else if (str == "reset") {
-        return INST_RESET;
-    }
-    else if (str == "halt") {
-        return INST_HALT;
-    }
-    else if (str == "add") {
-        return INST_ADD;
-    }
-    else if (str == "sub") {
-        return INST_SUB;
-    }
-    else if (str == "mul") {
-        return INST_MUL;
-    }
-    else if (str == "div") {
-        return INST_DIV;
-    }
-    else if (str == "cmp") {
-        return INST_CMP;
-    }
-    else if (str == "inc") {
-        return INST_INC;
-    }
-    else if (str == "dec") {
-        return INST_DEC;
-    }
-    else if (str == "uxt") {
-        return INST_UXT;
-    }
-    else if (str == "mov") {
-        return INST_MOV;
-    }
-    else if (str == "jsr") {
-        return INST_JSR;
-    }
-    else if (str == "rtn") {
-        return INST_RTN;
-    }
-    else if (str == "jmp") {
-        return INST_JMP;
-    }
-    else if (str == "jrz") {
-        return INST_JRZ;
-    }
-    else if (str == "jre") {
-        return INST_JRE;
-    }
-    else if (str == "jrn") {
-        return INST_JRN;
-    }
-    else if (str == "jrg") {
-        return INST_JRG;
-    }
-    else if (str == "jrge") {
-        return INST_JRGE;
-    }
-    else if (str == "jrl") {
-        return INST_JRL;
-    }
-    else if (str == "jrle") {
-        return INST_JRLE;
-    }
-    else if (str == "push") {
-        return INST_PUSH;
-    }
-    else if (str == "pop") {
-        return INST_POP;
-    }
-    else if (str == "pushs") {
-        return INST_PUSHS;
-    }
-    else if (str == "pops") {
-        return INST_POPS;
-    }
-    else if (str == "sei") {
-        return INST_SEI;
-    }
-    else if (str == "cli") {
-        return INST_CLI;
+    if (instructionAliases.contains(str)) {
+        return instructionAliases.at(str);
     }
     throw Except("ERROR: Invalid assembly instruction");
 }
@@ -623,13 +523,12 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
                 switch (arg.type)
                 {
                 case Type_Word:
-                case Type_WordAddress:
-                case Type_ByteAddress:
+                case Type_Address:
+                case Type_AddressRegister:
                     //Little endian system (least significant portion first)
                     progmem.push_back(std::get<Word>(arg.value) & 0xFF);
                     progmem.push_back(std::get<Word>(arg.value) >> 8);
                     break;
-                case Type_Byte:
                 case Type_Register:
                     progmem.push_back((Byte)std::get<Word>(arg.value));
                     break;
