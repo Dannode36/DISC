@@ -8,6 +8,10 @@
 #include <variant>
 #include <algorithm>
 
+#define DISA_MAJOR 1
+#define DISA_MINOR 0
+#define DISA_PATCH 0
+
 //Forward declarations & typedef's
 
 typedef std::exception Except;
@@ -95,7 +99,7 @@ struct AsmLabel {
 
         for (size_t i = 0; i < tokens.size(); i++)
         {
-            const auto& word = tokens[i];
+            std::string word = tokens[i];
 
             if (word == "\n") {
                 std::printf("\n");
@@ -129,6 +133,13 @@ struct AsmLabel {
     }
 };
 
+const std::map<std::string, std::string> macros {
+    {"_WordBits", "16"},
+    {"_WordBytes", "2"},
+    {"_VersionMajor", std::to_string(DISA_MAJOR)},
+    {"_VersionMinor", std::to_string(DISA_MINOR)},
+    {"_VersionPatch", std::to_string(DISA_PATCH)},
+};
 const std::map<std::string, Instruction> instructionAliases {
     //x86 style
     { "noop", INST_NOOP},
@@ -485,7 +496,14 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
             else {
                 //Lower string
                 std::transform(word.begin(), word.end(), word.begin(), [](unsigned char c) { return std::tolower(c); });
-                labels.back().tokens.push_back(word);
+
+                //Replace macros (TODO: only works with single values. What if we want functions inside macros?)
+                if (macros.contains(word)) {
+                    labels.back().tokens.push_back(macros.at(word));
+                }
+                else {
+                    labels.back().tokens.push_back(word);
+                }
             }
 
             isFirstWord = false;

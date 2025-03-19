@@ -86,7 +86,6 @@ enum Opcode : Byte
 
     //Opcodes must not excede 0x7F (01111111) due to the "addressMode" bit!
 };
-
 enum Interrupt
 {
     I_0 = 1 << 0,
@@ -98,7 +97,6 @@ enum Interrupt
     I_6 = 1 << 6,
     I_NM = 1 << 7
 };
-
 struct Memory
 {
     /*
@@ -138,7 +136,6 @@ struct Memory
         return Data[address];
     }
 };
-
 union Registers //Not including special registers
 {
     struct {
@@ -181,7 +178,6 @@ union Registers //Not including special registers
         return aligned[reg];
     }
 };
-
 struct CPU {
     //Registers
     Registers registers;
@@ -327,7 +323,7 @@ struct CPU {
             } break;
             case OP_ADDA: {
                 Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
                 Word memValue = ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] + memValue;
@@ -340,13 +336,13 @@ struct CPU {
             } break;
             case OP_SUBC: {
                 Byte reg = NextByte(cycles, mem);
-                Word value = addressMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word value = NextWord(cycles, mem);
 
                 registers[reg] = registers[reg] - value;
             } break;
             case OP_SUBA: {
                 Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
                 Word memValue = ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] - memValue;
@@ -359,13 +355,13 @@ struct CPU {
             } break;
             case OP_MULC: {
                 Byte reg = NextByte(cycles, mem);
-                Word value = addressMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word value = NextWord(cycles, mem);
 
                 registers[reg] = registers[reg] * value;
             } break;
             case OP_MULA: {
                 Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
                 Word memValue = ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] * memValue;
@@ -378,13 +374,13 @@ struct CPU {
             } break;
             case OP_DIVC: {
                 Byte reg = NextByte(cycles, mem);
-                Word value = addressMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
+                Word value = NextWord(cycles, mem);
 
                 registers[reg] = registers[reg] / value;
             } break;
             case OP_DIVA: {
                 Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
                 Word memValue = ReadWord(cycles, mem, address);
 
                 registers[reg] = registers[reg] / memValue;
@@ -416,18 +412,18 @@ struct CPU {
             } break;
             case OP_LDM: {
                 Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
                 registers[reg] = ReadWord(cycles, mem, address);
             } break;
             case OP_STRM: {
                 Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
 
                 WriteWord(cycles, mem, address, registers[reg]);
             } break;
             case OP_STCM: {
-                Word value = addressMode ? NextByte(cycles, mem) : NextWord(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word value = NextWord(cycles, mem);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
 
                 WriteWord(cycles, mem, address, value);
             } break;
@@ -445,7 +441,7 @@ struct CPU {
             case OP_JRE: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
 
                 if (registers[reg] == value) {
                     registers.PC = address;
@@ -454,7 +450,7 @@ struct CPU {
             case OP_JRN: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
 
                 if (registers[reg] != value) {
                     registers.PC = address;
@@ -463,7 +459,7 @@ struct CPU {
             case OP_JRG: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
 
                 if (registers[reg] > value) {
                     registers.PC = address;
@@ -472,7 +468,7 @@ struct CPU {
             case OP_JRGE: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
 
                 if (registers[reg] >= value) {
                     registers.PC = address;
@@ -481,7 +477,7 @@ struct CPU {
             case OP_JRL: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
 
                 if (registers[reg] < value) {
                     registers.PC = address;
@@ -490,7 +486,7 @@ struct CPU {
             case OP_JRLE: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : ReadWord(cycles, mem, registers[NextByte(cycles, mem)]);
+                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
 
                 if (registers[reg] <= value) {
                     registers.PC = address;

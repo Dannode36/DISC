@@ -13,6 +13,5 @@
 multiply:
 	mov r0 [rsp]
 	mov r1 r0
-	mov r2 r0
-	mul r2 r1
+	mul r1 r0
 	rtn
