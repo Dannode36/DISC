@@ -41,6 +41,8 @@ enum Instruction {
     INST_INC,           //Increment
     INST_DEC,           //Decrement
     INST_UXT,           //Zero extend
+    INST_LSL,           //Logical shift left
+    INST_LSR,           //Logical shift right
     INST_MOV,           //Move
     INST_JSR = 0x40,    //Jump to subroutine
     INST_RTN,           //Return from subroutine
@@ -278,10 +280,6 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_ADDC;
-        case Type_Address:
-            return OP_ADDA;
-        case Type_AddressRegister:
-            return (Opcode)(OP_ADDA | 0x80);
         case Type_Register:
             return OP_ADD;
         }
@@ -291,8 +289,6 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_SUBC;
-        case Type_Address:
-            return OP_SUBA;
         case Type_Register:
             return OP_SUB;
         }
@@ -302,8 +298,6 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_MULC;
-        case Type_Address:
-            return OP_MULA;
         case Type_Register:
             return OP_MUL;
         }
@@ -313,8 +307,6 @@ static Opcode GetOpcode(AsmInstruction& asmInst) {
         {
         case Type_Word:
             return OP_DIVC;
-        case Type_Address:
-            return OP_DIVA;
         case Type_Register:
             return OP_DIV;
         }
@@ -477,13 +469,20 @@ static void ParseAssembly(const std::string& input, std::vector<Byte>& progmem) 
     std::stringstream preprocessingStream(input);
     while (std::getline(preprocessingStream, line)) { //Tokenise: Handle labels and remove comments, tokenise
         bool isFirstWord = true;
+        bool isLabelLine = false;
         std::stringstream lineStream(line);
 
         while (std::getline(lineStream >> std::ws, word, ' ')) {
-            if (word.back() == ':') {
+            if (isLabelLine) {
+                if (word.front() == '[' && word.back() == ']') {
+                    labels.back().memAddress = 0;
+                }
+            }
+            else if (word.back() == ':') {
 
                 if (isFirstWord) {
                     labels.emplace_back(word.substr(0, word.length() - 1)); //Label
+                    isLabelLine = true;
                     break;
                 }
                 else {

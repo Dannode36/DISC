@@ -12,7 +12,8 @@ typedef int64_t i64;
 ///  - Opcodes cannot consume >1 memory addressing parameter
 ///  - All memory operations are 16 bit
 ///  - In progmem, all values are stored as 16 bits except register and interrupt values which are stored in 8 bits
-///  - The addressing mode bit is 0 for constant memory access and 1 for register value access
+///  - The addressing mode bit is 0 for constant memory access and 1 for register value access (excluding logical jumps)
+///  - The addressing mode bit determines if the new PC value is read from a constant or a register in logical jumps
 /// </summary>
 
 enum Opcode : Byte
@@ -25,22 +26,16 @@ enum Opcode : Byte
     //Arithmetic
     OP_ADD = 0x01,      //Add two registers, store in first
     OP_ADDC,            //Add word constant into register
-    OP_ADDA,            //Add register and word at memory address, store in register
 
     OP_SUB,             //Subtract two registers, store in first
     OP_SUBC,            //Subtract constant value from a register, store in register
-    OP_SUBA,            //Subtract the value in memory from a register, store in register
 
     OP_MUL,             //Multiply two registers, store in first
     OP_MULC,            //Multiply constant value from a register, store in register
-    OP_MULA,            //Multiply the value in memory from a register, store in register
 
     OP_DIV,             //Divide two registers, store in first
     OP_DIVC,            //Divide constant value from a register, store in register
-    OP_DIVA,            //Divide the value in memory from a register, store in register
 
-    OP_LSL,             //Logical shift left
-    OP_LSR,             //Logical shift right
     //OP_CMP = 0x0E,      //Subtract two registers and update status flags, discard result
     //OP_CMPA = 0x0F,     //Subtract a value in memory from a register and update status flags, discard result
 
@@ -50,6 +45,8 @@ enum Opcode : Byte
 
     //Bitwise
     OP_UXT = 0x20,      //Zero extend a register (truncate 16 bit value to 8 bits)
+    OP_LSL,             //Logical shift left
+    OP_LSR,             //Logical shift right
 
     //Data moving
     OP_LDR = 0x30,      //Load value from second register into first register
@@ -62,15 +59,24 @@ enum Opcode : Byte
     //Control
     OP_JSR = 0x40,      //Increment SP by 2, push the current PC to the stack, and jump to a subroutine
     OP_RTN,             //Pop the previous PC off the stack and jump to it, decrement value
-    OP_JMP,             //Set the program counter (PC) and continue execution
 
-    OP_JRZ,             //Jump if register is = to 0
-    OP_JRE,             //Jump if register is = to a constant value
-    OP_JRN,             //Jump if register is != to a constant value
-    OP_JRG,             //Jump if register is > than a constant value
-    OP_JRL,             //Jump if register is < than a constant value
-    OP_JRGE,            //Jump if register is >= to a constant value
-    OP_JRLE,            //Jump if register is <= to a constant value
+    OP_JMP,             //Jump to a constant address (set program counter) and continue execution
+    OP_JRZ,             //Jump to a constant address if register is = to 0
+    OP_JRE,             //Jump to a constant address if register is = to a constant value
+    OP_JRN,             //Jump to a constant address if register is != to a constant value
+    OP_JRG,             //Jump to a constant address if register is > than a constant value
+    OP_JRL,             //Jump to a constant address if register is < than a constant value
+    OP_JRGE,            //Jump to a constant address if register is >= to a constant value
+    OP_JRLE,            //Jump to a constant address if register is <= to a constant value
+
+    //OP_JMPR,             //Set the program counter to a register value and continue execution
+    //OP_JRZR,             //Set the program counter to a register value if register is = to 0
+    //OP_JRER,             //Set the program counter to a register value if register is = to a constant value
+    //OP_JRNR,             //Set the program counter to a register value if register is != to a constant value
+    //OP_JRGR,             //Set the program counter to a register value if register is > than a constant value
+    //OP_JRLR,             //Set the program counter to a register value if register is < than a constant value
+    //OP_JRGER,            //Set the program counter to a register value if register is >= to a constant value
+    //OP_JRLER,            //Set the program counter to a register value if register is <= to a constant value
 
     //Stack
     OP_PUSH = 0x60,     //Push register onto stack, decrement SP by (opsize + 1)
@@ -241,6 +247,35 @@ struct CPU {
         return value;
     }
 
+    void UpdateStatusFlags(i64 result) {
+        if (result > sizeof(Word)) {
+            registers.C = 1;
+        }
+        else {
+            registers.C = 0;
+        }
+
+        if (result > sizeof(int16_t)) {
+            registers.O = 1;
+        }
+        else {
+            registers.O = 0;
+        }
+
+        if (result & 32768) { // 1 << 15
+            registers.N = 1;
+        }
+        else {
+            registers.N = 0;
+        }
+
+        if (result == 0) {
+            registers.Z = 1;
+        }
+        else {
+            registers.Z = 0;
+        }
+    }
     void CoreDump() const {
         printf("\nCPU CORE DUMP:\n");
 
@@ -288,7 +323,7 @@ struct CPU {
 
             Byte instByte = NextByte(cycles, mem);
             Opcode instruction = (Opcode)(instByte & 0x7F);
-            bool addressMode = (instByte >> 7) == 1; //0 -> constant, 1 -> register)
+            bool addressMode = (instByte >> 7) == 1; //0 -> constant address, 1 -> register address)
 
             switch (instruction)
             {
@@ -313,77 +348,73 @@ struct CPU {
                 Byte reg1 = NextByte(cycles, mem);
                 Byte reg2 = NextByte(cycles, mem);
 
-                registers[reg1] = registers[reg1] + registers[reg2];
+                i64 result = (i64)registers[reg1] + registers[reg2]; //Cheating by casting to a larger type ;)
+                UpdateStatusFlags(result);
+
+                registers[reg1] = result;
             } break;
             case OP_ADDC: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
 
-                registers[reg] = registers[reg] + value;
-            } break;
-            case OP_ADDA: {
-                Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
-                Word memValue = ReadWord(cycles, mem, address);
+                i64 result = (i64)registers[reg] + value; //Cheating by casting to a larger type ;)
+                UpdateStatusFlags(result);
 
-                registers[reg] = registers[reg] + memValue;
+                registers[reg] = result;
             } break;
             case OP_SUB: {
                 Byte reg1 = NextByte(cycles, mem);
                 Byte reg2 = NextByte(cycles, mem);
 
-                registers[reg1] = registers[reg1] - registers[reg2];
+                i64 result = (i64)registers[reg1] - registers[reg2]; //Cheating by casting to a larger type ;)
+                UpdateStatusFlags(result);
+
+                registers[reg1] = result;
             } break;
             case OP_SUBC: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
 
-                registers[reg] = registers[reg] - value;
-            } break;
-            case OP_SUBA: {
-                Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
-                Word memValue = ReadWord(cycles, mem, address);
+                i64 result = (i64)registers[reg] - value; //Cheating by casting to a larger type ;)
+                UpdateStatusFlags(result);
 
-                registers[reg] = registers[reg] - memValue;
+                registers[reg] = result;
             } break;
             case OP_MUL: {
                 Byte reg1 = NextByte(cycles, mem);
                 Byte reg2 = NextByte(cycles, mem);
 
-                registers[reg1] = registers[reg1] * registers[reg2];
+                i64 result = (i64)registers[reg1] * registers[reg2]; //Cheating by casting to a larger type ;)
+                UpdateStatusFlags(result);
+
+                registers[reg1] = result;
             } break;
             case OP_MULC: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
 
-                registers[reg] = registers[reg] * value;
-            } break;
-            case OP_MULA: {
-                Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
-                Word memValue = ReadWord(cycles, mem, address);
+                i64 result = (i64)registers[reg] * value; //Cheating by casting to a larger type ;)
+                UpdateStatusFlags(result);
 
-                registers[reg] = registers[reg] * memValue;
+                registers[reg] = result;
             } break;
             case OP_DIV: {
                 Byte reg1 = NextByte(cycles, mem);
                 Byte reg2 = NextByte(cycles, mem);
 
-                registers[reg1] = registers[reg1] / registers[reg2];
+                i64 result = (i64)registers[reg1] / registers[reg2]; //Cheating by casting to a larger type ;)
+                UpdateStatusFlags(result);
+
+                registers[reg1] = result;
             } break;
             case OP_DIVC: {
                 Byte reg = NextByte(cycles, mem);
                 Word value = NextWord(cycles, mem);
 
-                registers[reg] = registers[reg] / value;
-            } break;
-            case OP_DIVA: {
-                Byte reg = NextByte(cycles, mem);
-                Word address = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
-                Word memValue = ReadWord(cycles, mem, address);
+                i64 result = (i64)registers[reg] / value; //Cheating by casting to a larger type ;)
+                UpdateStatusFlags(result);
 
-                registers[reg] = registers[reg] / memValue;
+                registers[reg] = result;
             } break;
             case OP_LSL: {
                 Byte reg = NextByte(cycles, mem);
@@ -428,11 +459,11 @@ struct CPU {
                 WriteWord(cycles, mem, address, value);
             } break;
             case OP_JMP: {
-                registers.PC = NextWord(cycles, mem);
+                registers.PC = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
             } break;
             case OP_JRZ: {
                 if (registers[NextByte(cycles, mem)] == 0) {
-                    registers.PC = NextWord(cycles, mem);
+                    registers.PC = addressMode ? NextWord(cycles, mem) : registers[NextByte(cycles, mem)];
                 }
                 else {
                     registers.PC += 2; //Avoid wasting 2 cycles with NextWord()

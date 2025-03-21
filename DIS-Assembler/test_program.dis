@@ -8,6 +8,8 @@
 	mov r4 0x04 ; Load constant into register 4
 	mov r5 r3
 	mul r5 r4
+
+	jmp r2
 	halt 
 
 multiply:

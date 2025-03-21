@@ -1,27 +1,30 @@
-INST_NOOP,
-INST_RESET,         //Reset CPU registers and status
-INST_HALT,          //Stop CPU
-INST_ADD,           //Add
-INST_SUB,           //Subtract
-INST_MUL,           //Multiply
-INST_DIV,           //Division
-INST_INC,           //Increment
-INST_DEC,           //Decrement
-INST_UXT,           //Zero extend
-INST_MOV,           //Move
-INST_JSR,			//Jump to subroutine
-INST_RTN,           //Return from subroutine
-INST_JMP,           //Jump program counter
-INST_JRZ,           //Jump if register is zero
-INST_JRE,           //Jump if register is equal
-INST_JRN,           //Jump if register is not equal
-INST_JRG,           //Jump if register is greater
-INST_JRGE,          //Jump if register is greater or equal
-INST_JRL,           //Jump if register is less
-INST_JRLE,          //Jump if register is less or equal
-INST_PUSH,          //Push onto stack
-INST_POP,           //Pop from stack
-INST_PUSHS,         //Push status onto stack
-INST_POPS,          //Pop status from stack
-INST_SETI,          //Set interrupt
-INST_CLRI,          //Clear interrupt
+INST_NOOP = 0,
+    INST_RESET,         //Reset CPU registers and status
+    INST_HALT,          //Stop CPU
+    INST_ADD,           //Add
+    INST_SUB,           //Subtract
+    INST_MUL,           //Multiply
+    INST_DIV,           //Division
+    //INST_CMP,         //Compare
+    INST_INC,           //Increment
+    INST_DEC,           //Decrement
+    INST_UXT,           //Zero extend
+    INST_LSL,           //Logical shift left
+    INST_LSR,           //Logical shift right
+    INST_MOV,           //Move
+    INST_JSR = 0x40,    //Jump to subroutine
+    INST_RTN,           //Return from subroutine
+    INST_JMP,           //Jump program counter
+    INST_JRZ,           //Jump if register is zero
+    INST_JRE,           //Jump if register is equal
+    INST_JRN,           //Jump if register is not equal
+    INST_JRG,           //Jump if register is greater
+    INST_JRGE,          //Jump if register is greater or equal
+    INST_JRL,           //Jump if register is less
+    INST_JRLE,          //Jump if register is less or equal
+    INST_PUSH,          //Push onto stack
+    INST_POP,           //Pop from stack
+    INST_PUSHS,         //Push status onto stack
+    INST_POPS,          //Pop status from stack
+    INST_SETI,          //Set interrupt
+    INST_CLRI,          //Clear interrupt
