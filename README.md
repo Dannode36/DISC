@@ -1,2 +1,1 @@
-# Cortex-M7-Emulator
- Cortex M7 Emulator
+Custom CPU instruction set and assembler
